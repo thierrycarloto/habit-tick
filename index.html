@@ -184,8 +184,35 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => {
+                navigator.serviceWorker.register('./sw.js').then(reg => {
+                    reg.addEventListener('updatefound', () => {
+                        const newWorker = reg.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // Temos uma nova versão e já existe um SW ativo
+                                if (typeof customConfirm === 'function') {
+                                    customConfirm('Uma nova versão do aplicativo está disponível! Deseja atualizar agora?', (confirmed) => {
+                                        if (confirmed) {
+                                            newWorker.postMessage('SKIP_WAITING');
+                                        }
+                                    });
+                                } else {
+                                    if (confirm('Uma nova versão do aplicativo está disponível! Deseja atualizar agora?')) {
+                                        newWorker.postMessage('SKIP_WAITING');
+                                    }
+                                }
+                            }
+                        });
+                    });
+                }).catch(err => {
                     console.warn('Falha ao registrar Service Worker:', err);
+                });
+
+                let refreshing;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (refreshing) return;
+                    refreshing = true;
+                    window.location.reload();
                 });
             });
         }
