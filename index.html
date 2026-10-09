@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habit Tick - Clone</title>
+    <meta name="description" content="Aplicativo de monitoramento de hábitos inspirado no Habit Tick">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="logo.png" type="image/png">
+    <meta name="theme-color" content="#0b0b0d">
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1 class="date-title" id="main-date-title">Hoje</h1>
+            <div class="header-icons">
+                <label class="theme-switch-header">
+                    <input type="checkbox" id="theme-toggle-checkbox">
+                    <span class="theme-slider-header">
+                        <i class="fa-solid fa-moon moon-icon"></i>
+                        <i class="fa-solid fa-sun sun-icon"></i>
+                        <div class="theme-knob-header"></div>
+                    </span>
+                </label>
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab-btn active" data-target="tab-visto">Visto</button>
+            <button class="tab-btn" data-target="tab-medir">Mensal</button>
+            <button class="tab-btn" data-target="tab-foco">Foco</button>
+        </nav>
+
+        <!-- Tab: Visto (Weekly) -->
+        <main id="tab-visto" class="tab-content active">
+            <div class="habit-list" id="weekly-habit-list">
+                <!-- Habits will be rendered here via JS -->
+            </div>
+        </main>
+
+        <!-- Tab: Medir (Monthly) -->
+        <main id="tab-medir" class="tab-content hidden">
+            <div class="habit-list" id="monthly-habit-list">
+                <!-- Monthly habits will be rendered here via JS -->
+            </div>
+        </main>
+
+        <!-- Tab: Foco (Timer) -->
+        <main id="tab-foco" class="tab-content hidden">
+            <div class="focus-body">
+                <div class="timer-settings">
+                    <label for="timer-input">Tempo de Foco (minutos):</label>
+                    <input type="number" id="timer-input" value="25" min="1" max="120">
+                </div>
+                <div class="timer-circle">
+                    <span class="time-display">25:00</span>
+                </div>
+                <p class="focus-desc">Fique longe do celular e foque no que importa.</p>
+                <button class="primary-btn start-timer-btn">Iniciar Foco</button>
+            </div>
+        </main>
+
+        <button class="fab-btn" id="add-habit-btn">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+
+        <!-- Add/Edit Habit Modal -->
+        <div id="habit-modal" class="modal hidden">
+            <div class="modal-content">
+                <header class="modal-header">
+                    <button class="icon-btn close-modal-btn"><i class="fa-solid fa-xmark"></i></button>
+                    <h2 id="modal-title">Novo Hábito</h2>
+                    <button class="icon-btn" style="visibility: hidden;"><i class="fa-solid fa-plus"></i></button>
+                </header>
+
+                <div class="modal-body">
+                    <form id="habit-form">
+                        <input type="hidden" id="habit-id">
+
+                        <div class="habit-preview">
+                            <div class="preview-icon-container" id="preview-bg">
+                                <i class="fa-solid fa-check" id="preview-icon"></i>
+                            </div>
+                            <input type="text" id="habit-name" class="habit-name-input" required
+                                placeholder="Nomeie seu hábito">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Selecionar ícone</label>
+                            <div class="picker-grid" id="icon-picker">
+                                <!-- Preenchido via JS -->
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Selecionar cor</label>
+                            <div class="picker-grid" id="color-picker">
+                                <!-- Preenchido via JS -->
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 24px;">
+                            <label>Tipo de Hábito</label>
+                            <div class="type-selector">
+                                <label class="type-btn active"><input type="radio" name="habit-type" value="sim_nao"
+                                        checked style="display:none;"> Sim / Não</label>
+                                <label class="type-btn"><input type="radio" name="habit-type" value="tempo"
+                                        style="display:none;"> Por Tempo</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="target-time-group" style="display: none; margin-top: 16px;">
+                            <label>Tempo Necessário (minutos)</label>
+                            <input type="number" id="habit-target-time" value="20" min="1" class="time-input"
+                                style="width: 100%;">
+                        </div>
+
+                        <div class="form-group" style="margin-top: 24px;">
+                            <label>Como você acompanha?</label>
+                            <div class="days-selector">
+                                <label><input type="checkbox" name="active-days" value="1" checked> Seg</label>
+                                <label><input type="checkbox" name="active-days" value="2" checked> Ter</label>
+                                <label><input type="checkbox" name="active-days" value="3" checked> Qua</label>
+                                <label><input type="checkbox" name="active-days" value="4" checked> Qui</label>
+                                <label><input type="checkbox" name="active-days" value="5" checked> Sex</label>
+                                <label><input type="checkbox" name="active-days" value="6" checked> Sáb</label>
+                                <label><input type="checkbox" name="active-days" value="0" checked> Dom</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group"
+                            style="display: flex; align-items: center; justify-content: space-between; margin-top: 32px; background: #131316; padding: 16px; border-radius: 12px; border: 1px solid var(--box-border);">
+                            <div>
+                                <label style="margin-bottom: 4px; font-size: 1rem; color: #fff;">Definir lembrete
+                                    diário</label>
+                                <p
+                                    style="font-size: 0.75rem; color: var(--text-secondary); margin: 0; font-style: italic;">
+                                    Pessoas que usam lembretes têm 3x mais chances de manter o hábito.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="habit-reminder-enabled">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+
+                        <div class="form-group" id="reminder-time-group" style="display: none;">
+                            <input type="time" id="habit-reminder-time" value="09:00" class="time-input">
+                        </div>
+
+                        <button type="submit" class="primary-btn submit-habit-btn"
+                            style="width: 100%; max-width: none; margin-top: 24px; border-radius: 12px;">Continuar</button>
+                        <button type="button" id="delete-habit-btn" class="primary-btn"
+                            style="width: 100%; max-width: none; margin-top: 12px; border-radius: 12px; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; display: none;">Excluir Hábito</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert/Confirm Modal -->
+    <div id="custom-dialog-modal" class="modal hidden" style="z-index: 2000;">
+        <div class="modal-content" style="max-width: 320px; text-align: center; padding: 24px;">
+            <h3 id="custom-dialog-title" style="margin-bottom: 12px; font-size: 1.15rem; color: var(--text-primary);">Atenção</h3>
+            <p id="custom-dialog-message" style="color: var(--text-secondary); margin-bottom: 24px; font-size: 0.95rem; line-height: 1.5;"></p>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button id="custom-dialog-cancel-btn" class="primary-btn" style="flex: 1; background: #2a2a30; color: #fff; border: none; display: none;">Cancelar</button>
+                <button id="custom-dialog-confirm-btn" class="primary-btn" style="flex: 1; border: none;">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => {
+                    console.warn('Falha ao registrar Service Worker:', err);
+                });
+            });
+        }
+    </script>
+    <script src="app.js"></script>
+</body>
+
+</html>
