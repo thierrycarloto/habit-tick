@@ -30,6 +30,14 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+    if (event.request.url.endsWith('favicon.ico')) {
+        event.respondWith(
+            caches.match('./logo.png').then(response => {
+                return response || fetch('./logo.png');
+            })
+        );
+        return;
+    }
     event.respondWith(
         caches.match(event.request)
             .then(response => {
