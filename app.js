@@ -403,11 +403,13 @@ function openModal(habitId = null) {
     habitForm.reset();
     document.getElementById('habit-id').value = '';
     const deleteBtn = document.getElementById('delete-habit-btn');
+    const submitBtn = document.querySelector('.submit-habit-btn');
 
     if (habitId) {
         const habit = state.habits.find(h => h.id === habitId);
         if (habit) {
             modalTitle.textContent = 'Editar Hábito';
+            submitBtn.textContent = 'Salvar';
             deleteBtn.style.display = 'block';
             document.getElementById('habit-id').value = habit.id;
             document.getElementById('habit-name').value = habit.name;
@@ -431,6 +433,7 @@ function openModal(habitId = null) {
         }
     } else {
         modalTitle.textContent = 'Novo Hábito';
+        submitBtn.textContent = 'Continuar';
         deleteBtn.style.display = 'none';
 
         document.querySelector(`input[name="habit-type"][value="sim_nao"]`).checked = true;
