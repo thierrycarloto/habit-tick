@@ -492,52 +492,98 @@ body.light-mode .theme-knob-header {
 }
 
 /* === Mensal === */
-.month-grid {
+.months-container {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.month-block {
+    background: rgba(0,0,0,0.1);
+    padding: 12px;
+    border-radius: 12px;
+}
+
+.month-title {
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+    font-weight: 600;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
     gap: 6px;
 }
 
-.month-box {
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
-}
-
-/* === Timer Settings === */
-.timer-settings {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 24px;
-}
-
-.timer-settings label {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-
-.timer-settings input {
-    background-color: var(--card-bg);
-    border: 1px solid var(--box-border);
-    color: #fff;
-    padding: 8px;
-    border-radius: 8px;
-    width: 80px;
+.cal-day-header {
     text-align: center;
-    font-size: 1.2rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    font-weight: 500;
 }
 
-/* Remove spin buttons from number inputs */
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
+.cal-box {
+    aspect-ratio: 1;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.6);
+}
+
+.cal-box.empty {
+    background-color: transparent !important;
+}
+
+.cal-box.completed {
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+/* === Custom Range Input para Timer Modal === */
+.custom-range {
     -webkit-appearance: none;
-    margin: 0;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
 }
 
-input[type=number] {
-    -moz-appearance: textfield;
+.custom-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 6px;
+    height: 32px;
+    background-color: var(--accent-green);
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(52, 211, 153, 0.4);
+    transition: transform 0.1s;
+}
+
+.custom-range::-webkit-slider-thumb:hover,
+.custom-range::-webkit-slider-thumb:active {
+    transform: scaleY(1.15);
+}
+
+.custom-range::-moz-range-thumb {
+    width: 6px;
+    height: 32px;
+    background-color: var(--accent-green);
+    border-radius: 4px;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 0 10px rgba(52, 211, 153, 0.4);
+}
+
+/* Light mode overrides for Timer Slider */
+body.light-mode #timer-slider-modal .modal-content {
+    background-color: var(--card-bg);
 }
 
 /* === Form === */

@@ -1,13 +1,11 @@
-const CACHE_NAME = 'habit-tick-v3';
+const CACHE_NAME = 'habit-tick-v4';
 const ASSETS = [
     './',
     './index.html',
     './style.css',
     './app.js',
     './manifest.json',
-    './logo.png',
-    './icon-192.png',
-    './icon-512.png'
+    './novo_icone.png'
 ];
 
 self.addEventListener('install', event => {
@@ -33,8 +31,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     if (event.request.url.endsWith('favicon.ico')) {
         event.respondWith(
-            caches.match('./logo.png').then(response => {
-                return response || fetch('./logo.png');
+            caches.match('./novo_icone.png').then(response => {
+                return response || fetch('./novo_icone.png');
             })
         );
         return;

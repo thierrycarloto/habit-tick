@@ -8,9 +8,9 @@
     <meta name="description" content="Aplicativo de monitoramento de hábitos inspirado no Habit Tick">
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="logo.png" type="image/png">
-    <link rel="shortcut icon" href="logo.png" type="image/png">
-    <link rel="apple-touch-icon" href="logo.png">
+    <link rel="icon" href="novo_icone.png" type="image/png">
+    <link rel="shortcut icon" href="novo_icone.png" type="image/png">
+    <link rel="apple-touch-icon" href="novo_icone.png">
     <meta name="theme-color" content="#0b0b0d">
     <link rel="stylesheet" href="style.css">
     <!-- Google Fonts: Inter -->
@@ -52,6 +52,11 @@
 
         <!-- Tab: Medir (Monthly) -->
         <main id="tab-medir" class="tab-content hidden">
+            <div class="month-nav-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; background: var(--card-bg); padding: 12px 24px; border-radius: var(--border-radius); border: 1px solid rgba(255, 255, 255, 0.05);">
+                <button id="prev-month-btn" class="icon-btn"><i class="fa-solid fa-chevron-left"></i></button>
+                <span id="current-month-display" style="font-weight: 600; font-size: 1.1rem; text-transform: capitalize;"></span>
+                <button id="next-month-btn" class="icon-btn" disabled style="opacity: 0.3;"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
             <div class="habit-list" id="monthly-habit-list">
                 <!-- Monthly habits will be rendered here via JS -->
             </div>
@@ -60,11 +65,8 @@
         <!-- Tab: Foco (Timer) -->
         <main id="tab-foco" class="tab-content hidden">
             <div class="focus-body">
-                <div class="timer-settings">
-                    <label for="timer-input">Tempo de Foco (minutos):</label>
-                    <input type="number" id="timer-input" value="25" min="1" max="120">
-                </div>
-                <div class="timer-circle">
+                <input type="hidden" id="timer-input" value="25">
+                <div class="timer-circle" id="timer-circle-clickable" style="cursor: pointer;" title="Clique para alterar o tempo">
                     <span class="time-display">25:00</span>
                 </div>
                 <p class="focus-desc">Fique longe do celular e foque no que importa.</p>
@@ -178,6 +180,28 @@
                 <button id="custom-dialog-cancel-btn" class="primary-btn" style="flex: 1; background: #2a2a30; color: #fff; border: none; display: none;">Cancelar</button>
                 <button id="custom-dialog-confirm-btn" class="primary-btn" style="flex: 1; border: none;">OK</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Timer Slider Modal -->
+    <div id="timer-slider-modal" class="modal hidden" style="z-index: 2500;">
+        <div class="modal-content" style="padding: 32px 24px; text-align: center; border-radius: 32px 32px 0 0; margin-top: auto; max-height: none;">
+            <h3 style="margin-bottom: 24px; font-size: 1.15rem; color: var(--text-primary); font-weight: 500;">Temporizador</h3>
+            
+            <div id="timer-slider-display" style="font-size: 2.5rem; font-weight: 700; margin-bottom: 32px;">
+                25 min
+            </div>
+            
+            <div style="position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 40px; padding: 0 16px;">
+                <i class="fa-regular fa-clock" style="position: absolute; left: 0; color: var(--text-secondary); font-size: 1.2rem;"></i>
+                
+                <div style="position: relative; width: 100%; margin-left: 32px; height: 40px;">
+                    <div style="position: absolute; top: 12px; left: 0; right: 0; height: 16px; background: repeating-linear-gradient(to right, var(--text-secondary) 0, var(--text-secondary) 2px, transparent 2px, transparent 10%); opacity: 0.5; pointer-events: none;"></div>
+                    <input type="range" id="modal-timer-range" min="5" max="180" step="5" value="25" style="width: 100%; height: 40px; margin: 0; background: transparent; cursor: pointer; position: relative; z-index: 2;" class="custom-range">
+                </div>
+            </div>
+            
+            <button id="timer-slider-confirm-btn" class="primary-btn" style="width: 100%; max-width: none; border-radius: 24px; padding: 16px; font-size: 1rem; margin-top: 16px;">Confirmar</button>
         </div>
     </div>
 

@@ -87,7 +87,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 // === Renderização ===
-const weekDays = ['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Su'];
+const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const weekDayMap = [1, 2, 3, 4, 5, 6, 0]; // JS Date.getDay(): 0 is Sunday, so map to match labels: M=1, Tu=2, ..., Su=0
 
 function calculateStreak(habit) {
@@ -264,16 +264,37 @@ function renderWeeklyView() {
     });
 }
 
+let selectedMonthOffset = 0;
+
+document.getElementById('prev-month-btn').addEventListener('click', () => {
+    selectedMonthOffset++;
+    renderMonthlyView();
+});
+
+document.getElementById('next-month-btn').addEventListener('click', () => {
+    if (selectedMonthOffset > 0) {
+        selectedMonthOffset--;
+        renderMonthlyView();
+    }
+});
+
 function renderMonthlyView() {
     const container = document.getElementById('monthly-habit-list');
     container.innerHTML = '';
 
-    // Renderizar os últimos 28 dias
-    const pastDates = [];
-    for (let i = 27; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
-        pastDates.push(d);
+    const date = new Date(today.getFullYear(), today.getMonth() - selectedMonthOffset, 1);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const monthName = date.toLocaleString('pt-BR', { month: 'long' });
+
+    document.getElementById('current-month-display').textContent = `${monthName} ${year}`;
+    const nextBtn = document.getElementById('next-month-btn');
+    if (selectedMonthOffset === 0) {
+        nextBtn.disabled = true;
+        nextBtn.style.opacity = '0.3';
+    } else {
+        nextBtn.disabled = false;
+        nextBtn.style.opacity = '1';
     }
 
     state.habits.forEach(habit => {
@@ -281,22 +302,48 @@ function renderMonthlyView() {
         card.className = 'habit-card';
         card.style.setProperty('--habit-color', habit.color);
 
-        let gridHtml = '';
-        let doneThisMonth = 0;
-        pastDates.forEach(d => {
-            const dateStr = formatDate(d);
-            const jsDay = d.getDay();
+        let html = '';
+        let doneTotal = 0;
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+            
+        html += `<div class="month-block" style="padding-top: 0;">
+                    <div class="calendar-grid">
+                        <div class="cal-day-header">D</div>
+                        <div class="cal-day-header">S</div>
+                        <div class="cal-day-header">T</div>
+                        <div class="cal-day-header">Q</div>
+                        <div class="cal-day-header">Q</div>
+                        <div class="cal-day-header">S</div>
+                        <div class="cal-day-header">S</div>`;
+                            
+        for (let i = 0; i < firstDay; i++) {
+            html += `<div class="cal-box empty"></div>`;
+        }
+            
+        for (let d = 1; d <= daysInMonth; d++) {
+            const currentD = new Date(year, month, d);
+            const dateStr = formatDate(currentD);
+            const jsDay = currentD.getDay();
             const isActiveDay = habit.activeDays.includes(jsDay);
             const isCompleted = habit.records[dateStr];
-
-            if (isCompleted) doneThisMonth++;
-
-            let color = 'rgba(255,255,255,0.05)'; // vazio
-            if (!isActiveDay) color = 'rgba(0,0,0,0.3)'; // bloqueado
-            if (isCompleted) color = habit.color; // completo
-
-            gridHtml += `<div class="month-box" style="background-color: ${color};" title="${dateStr}"></div>`;
-        });
+                
+            if (isCompleted) doneTotal++;
+                
+            let color = 'rgba(255,255,255,0.05)';
+            let extraClass = '';
+            if (!isActiveDay) {
+                color = 'rgba(0,0,0,0.3)';
+            } else if (isCompleted) {
+                color = habit.color;
+                extraClass = 'completed';
+            }
+                
+            html += `<div class="cal-box ${extraClass}" style="background-color: ${color};" title="${dateStr}">${d}</div>`;
+        }
+            
+        html += `</div></div>`;
 
         let streakCountText = '';
         if (habit.type === 'tempo') {
@@ -313,11 +360,11 @@ function renderMonthlyView() {
                 </div>
                 <div class="habit-info">
                     <h2 style="font-size: 1.1rem; margin-bottom: 4px;">${habit.name}</h2>
-                    <span class="streak" style="font-size: 0.8rem; color: var(--text-secondary);">${doneThisMonth} neste mês &bull; <i class="fa-solid fa-fire" style="color: #f97316;"></i> ${streakCountText}</span>
+                    <span class="streak" style="font-size: 0.8rem; color: var(--text-secondary);">${doneTotal} concluídos &bull; <i class="fa-solid fa-fire" style="color: #f97316;"></i> ${streakCountText}</span>
                 </div>
             </div>
-            <div class="month-grid">
-                ${gridHtml}
+            <div class="months-container">
+                ${html}
             </div>
         `;
         container.appendChild(card);
@@ -516,8 +563,43 @@ let cancelTimeout;
 
 timerInput.addEventListener('change', () => {
     if (!isTimerRunning) {
-        timeLeft = parseInt(timerInput.value) * 60;
+        let val = parseInt(timerInput.value);
+        if (val > 180) val = 180;
+        if (val < 1) val = 1;
+        timerInput.value = val;
+        timeLeft = val * 60;
         updateTimeDisplay();
+    }
+});
+
+const timerModal = document.getElementById('timer-slider-modal');
+const modalTimerRange = document.getElementById('modal-timer-range');
+const timerSliderDisplay = document.getElementById('timer-slider-display');
+const timerSliderConfirmBtn = document.getElementById('timer-slider-confirm-btn');
+
+document.getElementById('timer-circle-clickable').addEventListener('click', () => {
+    if (!isTimerRunning) {
+        modalTimerRange.value = timerInput.value;
+        timerSliderDisplay.textContent = `${timerInput.value} min`;
+        timerModal.classList.remove('hidden');
+    }
+});
+
+modalTimerRange.addEventListener('input', (e) => {
+    timerSliderDisplay.textContent = `${e.target.value} min`;
+});
+
+timerSliderConfirmBtn.addEventListener('click', () => {
+    const val = parseInt(modalTimerRange.value);
+    timerInput.value = val;
+    timeLeft = val * 60;
+    updateTimeDisplay();
+    timerModal.classList.add('hidden');
+});
+
+timerModal.addEventListener('click', (e) => {
+    if (e.target === timerModal) {
+        timerModal.classList.add('hidden');
     }
 });
 
@@ -731,3 +813,48 @@ function checkAlarms() {
 
 // Chamar uma vez no inicio
 setTimeout(checkAlarms, 2000);
+
+// === Swipe to Change Tabs ===
+let touchStartX = 0;
+let touchEndX = 0;
+const swipeThreshold = 50;
+const appContainer = document.querySelector('.app-container');
+
+if (appContainer) {
+    appContainer.addEventListener('touchstart', e => {
+        const modal = document.getElementById('habit-modal');
+        const timerModal = document.getElementById('timer-slider-modal');
+        if (modal && !modal.classList.contains('hidden')) return;
+        if (timerModal && !timerModal.classList.contains('hidden')) return;
+        if (['INPUT', 'BUTTON', 'TEXTAREA'].includes(e.target.tagName)) return;
+        touchStartX = e.changedTouches[0].screenX;
+    }, {passive: true});
+
+    appContainer.addEventListener('touchend', e => {
+        const modal = document.getElementById('habit-modal');
+        const timerModal = document.getElementById('timer-slider-modal');
+        if (modal && !modal.classList.contains('hidden')) return;
+        if (timerModal && !timerModal.classList.contains('hidden')) return;
+        if (['INPUT', 'BUTTON', 'TEXTAREA'].includes(e.target.tagName)) return;
+
+        touchEndX = e.changedTouches[0].screenX;
+        const diff = touchStartX - touchEndX;
+
+        if (Math.abs(diff) > swipeThreshold) {
+            const tabs = Array.from(document.querySelectorAll('.tab-btn'));
+            const activeIndex = tabs.findIndex(tab => tab.classList.contains('active'));
+            
+            if (diff > 0) {
+                // Swipe Left -> Next Tab
+                if (activeIndex >= 0 && activeIndex < tabs.length - 1) {
+                    tabs[activeIndex + 1].click();
+                }
+            } else {
+                // Swipe Right -> Prev Tab
+                if (activeIndex > 0) {
+                    tabs[activeIndex - 1].click();
+                }
+            }
+        }
+    });
+}
