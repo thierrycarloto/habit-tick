@@ -65,25 +65,66 @@ if (localStorage.getItem('habitTickTheme') === 'light') {
     if (themeCheckbox) themeCheckbox.checked = true;
 }
 
-// === Gerenciamento de Abas ===
-document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+// === Gerenciamento de Abas e Transição Suave (Estilo Samsung / ViewPager) ===
+let currentTabIndex = 0;
+const tabTrack = document.getElementById('tab-track');
+const tabViewport = document.getElementById('tab-viewport');
+const tabIndicator = document.getElementById('tab-indicator');
+const tabBtns = Array.from(document.querySelectorAll('.tab-btn'));
 
-        const targetId = e.target.getAttribute('data-target');
-        e.target.classList.add('active');
-        document.getElementById(targetId).classList.remove('hidden');
+function updateTabIndicator(progress) {
+    if (!tabIndicator || tabBtns.length === 0) return;
+    const tabWidth = tabBtns[0].offsetWidth;
+    const indicatorWidth = tabWidth * 0.6;
+    const indicatorOffset = tabWidth * 0.2;
+    const x = (progress * tabWidth) + indicatorOffset;
+    tabIndicator.style.width = `${indicatorWidth}px`;
+    tabIndicator.style.transform = `translateX(${x}px)`;
+}
 
-        // Esconder o FAB apenas na aba Foco
-        if (targetId === 'tab-foco') {
-            document.getElementById('add-habit-btn').style.display = 'none';
+function switchTab(index, animate = true) {
+    if (index < 0) index = 0;
+    if (index >= tabBtns.length) index = tabBtns.length - 1;
+    currentTabIndex = index;
+
+    if (tabTrack) {
+        if (animate) {
+            tabTrack.style.transition = 'transform 0.32s cubic-bezier(0.25, 1, 0.5, 1)';
         } else {
-            document.getElementById('add-habit-btn').style.display = 'flex';
+            tabTrack.style.transition = 'none';
         }
+        tabTrack.style.transform = `translateX(-${index * 100}%)`;
+    }
 
-        renderViews();
+    if (tabIndicator) {
+        if (animate) {
+            tabIndicator.style.transition = 'transform 0.32s cubic-bezier(0.25, 1, 0.5, 1), width 0.32s ease';
+        } else {
+            tabIndicator.style.transition = 'none';
+        }
+        updateTabIndicator(index);
+    }
+
+    tabBtns.forEach((btn, i) => {
+        btn.classList.toggle('active', i === index);
     });
+
+    const fabBtn = document.getElementById('add-habit-btn');
+    if (fabBtn) {
+        fabBtn.style.display = index === 2 ? 'none' : 'flex';
+    }
+
+    renderViews();
+}
+
+tabBtns.forEach((btn, index) => {
+    btn.addEventListener('click', () => {
+        switchTab(index, true);
+    });
+});
+
+window.addEventListener('resize', () => {
+    updateTabIndicator(currentTabIndex);
 });
 
 // === Renderização ===
@@ -234,13 +275,15 @@ function renderWeeklyView() {
             const habit = state.habits.find(h => h.id === habitId);
             if (habit) {
                 if (habit.type === 'tempo' && !habit.records[dateStr]) {
-                    // Manda pra aba de foco
-                    document.querySelector('.tab-btn[data-target="tab-foco"]').click();
+                    // Manda pra aba de foco com animação fluida
+                    switchTab(2, true);
 
                     // Configura o cronômetro
                     const timerInput = document.getElementById('timer-input');
-                    timerInput.value = habit.targetTime || 20;
-                    timeLeft = (habit.targetTime || 20) * 60;
+                    const targetMinutes = habit.targetTime || 20;
+                    timerInput.value = targetMinutes;
+                    totalTimerSeconds = targetMinutes * 60;
+                    timeLeft = totalTimerSeconds;
                     updateTimeDisplay();
 
                     // Guarda referência
@@ -554,45 +597,124 @@ document.getElementById('delete-habit-btn').addEventListener('click', () => {
 const startTimerBtn = document.querySelector('.start-timer-btn');
 const timeDisplay = document.querySelector('.time-display');
 const timerInput = document.getElementById('timer-input');
+const timerProgressRing = document.getElementById('timer-progress-ring');
+const timerDotGroup = document.getElementById('timer-dot-group');
+const CIRCUMFERENCE = 596.9; // 2 * PI * 95
 
 let timerInterval;
-let timeLeft = parseInt(timerInput.value) * 60;
+let totalTimerSeconds = parseInt(timerInput.value) * 60;
+let timeLeft = totalTimerSeconds;
 let isTimerRunning = false;
 let isCancelPeriod = false;
 let cancelTimeout;
+
+// Ruler Ticks e Slider Modal
+const timerModal = document.getElementById('timer-slider-modal');
+const modalTimerRange = document.getElementById('modal-timer-range');
+const timerSliderDisplay = document.getElementById('timer-slider-display');
+const timerSliderConfirmBtn = document.getElementById('timer-slider-confirm-btn');
+const rulerTicks = document.getElementById('ruler-ticks');
+
+let lastVibratedVal = parseInt(timerInput.value) || 25;
+
+function initRulerTicks() {
+    if (!rulerTicks) return;
+    rulerTicks.innerHTML = '';
+    // Gera exatamente 36 barras de 5 em 5 minutos (5 a 180 min)
+    for (let min = 5; min <= 180; min += 5) {
+        const tick = document.createElement('div');
+        tick.className = 'ruler-tick';
+        tick.dataset.val = min;
+        if (min % 30 === 0) {
+            tick.classList.add('tick-large');
+        } else if (min % 15 === 0) {
+            tick.classList.add('tick-medium');
+        } else {
+            tick.classList.add('tick-small');
+        }
+        rulerTicks.appendChild(tick);
+    }
+}
+
+function updateRulerTicks(currentVal) {
+    if (!rulerTicks) return;
+    const ticks = rulerTicks.querySelectorAll('.ruler-tick');
+    ticks.forEach(tick => {
+        const val = parseInt(tick.dataset.val);
+        tick.classList.toggle('passed', val <= currentVal);
+        tick.classList.toggle('active-tick', val === currentVal);
+    });
+}
+
+function updateTimeDisplay() {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+    // Atualiza anel circular e bolinha viajante
+    if (timerProgressRing && timerDotGroup) {
+        const total = (totalTimerSeconds > 0) ? totalTimerSeconds : (parseInt(timerInput.value) * 60);
+        const elapsed = Math.max(0, total - timeLeft);
+        const progress = total > 0 ? (elapsed / total) : 0;
+
+        // O anel preenche no sentido horário conforme o tempo passa
+        const offset = CIRCUMFERENCE * (1 - progress);
+        timerProgressRing.style.strokeDashoffset = offset;
+
+        // A bolinha viaja gradativamente pelo círculo todo
+        const angle = progress * 360;
+        timerDotGroup.setAttribute('transform', `rotate(${angle} 110 110)`);
+    }
+}
 
 timerInput.addEventListener('change', () => {
     if (!isTimerRunning) {
         let val = parseInt(timerInput.value);
         if (val > 180) val = 180;
-        if (val < 1) val = 1;
+        if (val < 5) val = 5;
         timerInput.value = val;
-        timeLeft = val * 60;
+        totalTimerSeconds = val * 60;
+        timeLeft = totalTimerSeconds;
+        if (timerProgressRing) timerProgressRing.style.transition = 'stroke-dashoffset 0.3s ease';
+        if (timerDotGroup) timerDotGroup.style.transition = 'transform 0.3s ease';
         updateTimeDisplay();
     }
 });
 
-const timerModal = document.getElementById('timer-slider-modal');
-const modalTimerRange = document.getElementById('modal-timer-range');
-const timerSliderDisplay = document.getElementById('timer-slider-display');
-const timerSliderConfirmBtn = document.getElementById('timer-slider-confirm-btn');
-
 document.getElementById('timer-circle-clickable').addEventListener('click', () => {
     if (!isTimerRunning) {
-        modalTimerRange.value = timerInput.value;
-        timerSliderDisplay.textContent = `${timerInput.value} min`;
+        const val = parseInt(timerInput.value) || 25;
+        modalTimerRange.value = val;
+        lastVibratedVal = val;
+        timerSliderDisplay.textContent = `${val} min`;
+        updateRulerTicks(val);
         timerModal.classList.remove('hidden');
     }
 });
 
 modalTimerRange.addEventListener('input', (e) => {
-    timerSliderDisplay.textContent = `${e.target.value} min`;
+    const val = parseInt(e.target.value);
+    timerSliderDisplay.textContent = `${val} min`;
+    updateRulerTicks(val);
+
+    // Vibração suave no celular a cada mudança de 5 em 5 minutos
+    if (val !== lastVibratedVal) {
+        lastVibratedVal = val;
+        if ('vibrate' in navigator) {
+            try {
+                navigator.vibrate(10);
+            } catch (err) {}
+        }
+    }
 });
 
 timerSliderConfirmBtn.addEventListener('click', () => {
     const val = parseInt(modalTimerRange.value);
     timerInput.value = val;
-    timeLeft = val * 60;
+    totalTimerSeconds = val * 60;
+    timeLeft = totalTimerSeconds;
+    if (timerProgressRing) timerProgressRing.style.transition = 'stroke-dashoffset 0.3s ease';
+    if (timerDotGroup) timerDotGroup.style.transition = 'transform 0.3s ease';
     updateTimeDisplay();
     timerModal.classList.add('hidden');
 });
@@ -602,12 +724,6 @@ timerModal.addEventListener('click', (e) => {
         timerModal.classList.add('hidden');
     }
 });
-
-function updateTimeDisplay() {
-    const minutes = Math.floor(timeLeft / 60);
-    const seconds = timeLeft % 60;
-    timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-}
 
 startTimerBtn.addEventListener('click', () => {
     if (isTimerRunning) {
@@ -620,7 +736,10 @@ startTimerBtn.addEventListener('click', () => {
             startTimerBtn.textContent = 'Iniciar Foco';
             startTimerBtn.classList.remove('btn-danger');
             timerInput.disabled = false;
-            timeLeft = parseInt(timerInput.value) * 60;
+            if (timerProgressRing) timerProgressRing.style.transition = 'stroke-dashoffset 0.3s ease';
+            if (timerDotGroup) timerDotGroup.style.transition = 'transform 0.3s ease';
+            totalTimerSeconds = parseInt(timerInput.value) * 60;
+            timeLeft = totalTimerSeconds;
             updateTimeDisplay();
         } else {
             // Já passou os 10 segundos, clicou em "Desistir"
@@ -631,7 +750,10 @@ startTimerBtn.addEventListener('click', () => {
                     startTimerBtn.textContent = 'Iniciar Foco';
                     startTimerBtn.classList.remove('btn-danger');
                     timerInput.disabled = false;
-                    timeLeft = parseInt(timerInput.value) * 60;
+                    if (timerProgressRing) timerProgressRing.style.transition = 'stroke-dashoffset 0.3s ease';
+                    if (timerDotGroup) timerDotGroup.style.transition = 'transform 0.3s ease';
+                    totalTimerSeconds = parseInt(timerInput.value) * 60;
+                    timeLeft = totalTimerSeconds;
                     updateTimeDisplay();
 
                     window.currentFocusHabitId = null;
@@ -650,6 +772,9 @@ startTimerBtn.addEventListener('click', () => {
         startTimerBtn.textContent = 'Cancelar (10s)';
         startTimerBtn.classList.remove('btn-danger');
         timerInput.disabled = true;
+
+        if (timerProgressRing) timerProgressRing.style.transition = 'stroke-dashoffset 0.9s linear';
+        if (timerDotGroup) timerDotGroup.style.transition = 'transform 0.9s linear';
 
         let cancelSeconds = 10;
 
@@ -711,7 +836,10 @@ startTimerBtn.addEventListener('click', () => {
                     window.currentFocusDateStr = null;
                 }
 
-                timeLeft = parseInt(timerInput.value) * 60;
+                if (timerProgressRing) timerProgressRing.style.transition = 'stroke-dashoffset 0.3s ease';
+                if (timerDotGroup) timerDotGroup.style.transition = 'transform 0.3s ease';
+                totalTimerSeconds = parseInt(timerInput.value) * 60;
+                timeLeft = totalTimerSeconds;
                 updateTimeDisplay();
             }
         }, 1000);
@@ -723,7 +851,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('main-date-title').textContent = `Hoje, ${today.getDate()} de ${today.toLocaleString('pt-BR', { month: 'short' }).replace('.', '')}`;
     loadState();
     renderViews();
+    initRulerTicks();
+    updateRulerTicks(parseInt(timerInput.value) || 25);
     updateTimeDisplay();
+    switchTab(0, false);
 });
 
 // === Modal de Diálogo Customizado (Alert / Confirm) ===
@@ -814,47 +945,109 @@ function checkAlarms() {
 // Chamar uma vez no inicio
 setTimeout(checkAlarms, 2000);
 
-// === Swipe to Change Tabs ===
-let touchStartX = 0;
-let touchEndX = 0;
-const swipeThreshold = 50;
-const appContainer = document.querySelector('.app-container');
+// === Transição Gradual ao Deslizar Entre Abas (Estilo Celulares Samsung) ===
+let dragStartX = 0;
+let dragStartY = 0;
+let dragCurrentX = 0;
+let dragStartTime = 0;
+let isHorizontalDrag = null;
+let isTouchActive = false;
 
-if (appContainer) {
-    appContainer.addEventListener('touchstart', e => {
+if (tabViewport) {
+    tabViewport.addEventListener('touchstart', (e) => {
+        // Ignora gestos se qualquer modal estiver aberto
         const modal = document.getElementById('habit-modal');
-        const timerModal = document.getElementById('timer-slider-modal');
+        const tModal = document.getElementById('timer-slider-modal');
+        const cModal = document.getElementById('custom-dialog-modal');
         if (modal && !modal.classList.contains('hidden')) return;
-        if (timerModal && !timerModal.classList.contains('hidden')) return;
-        if (['INPUT', 'BUTTON', 'TEXTAREA'].includes(e.target.tagName)) return;
-        touchStartX = e.changedTouches[0].screenX;
-    }, {passive: true});
+        if (tModal && !tModal.classList.contains('hidden')) return;
+        if (cModal && !cModal.classList.contains('hidden')) return;
 
-    appContainer.addEventListener('touchend', e => {
-        const modal = document.getElementById('habit-modal');
-        const timerModal = document.getElementById('timer-slider-modal');
-        if (modal && !modal.classList.contains('hidden')) return;
-        if (timerModal && !timerModal.classList.contains('hidden')) return;
-        if (['INPUT', 'BUTTON', 'TEXTAREA'].includes(e.target.tagName)) return;
+        // Não interceptar sliders internos
+        if (e.target.closest('#modal-timer-range, input[type="range"]')) return;
 
-        touchEndX = e.changedTouches[0].screenX;
-        const diff = touchStartX - touchEndX;
+        const touch = e.touches[0];
+        dragStartX = touch.clientX;
+        dragStartY = touch.clientY;
+        dragCurrentX = dragStartX;
+        dragStartTime = Date.now();
+        isHorizontalDrag = null;
+        isTouchActive = true;
+    }, { passive: true });
 
-        if (Math.abs(diff) > swipeThreshold) {
-            const tabs = Array.from(document.querySelectorAll('.tab-btn'));
-            const activeIndex = tabs.findIndex(tab => tab.classList.contains('active'));
-            
-            if (diff > 0) {
-                // Swipe Left -> Next Tab
-                if (activeIndex >= 0 && activeIndex < tabs.length - 1) {
-                    tabs[activeIndex + 1].click();
-                }
-            } else {
-                // Swipe Right -> Prev Tab
-                if (activeIndex > 0) {
-                    tabs[activeIndex - 1].click();
-                }
+    tabViewport.addEventListener('touchmove', (e) => {
+        if (!isTouchActive) return;
+
+        const touch = e.touches[0];
+        dragCurrentX = touch.clientX;
+        const deltaX = dragCurrentX - dragStartX;
+        const deltaY = touch.clientY - dragStartY;
+
+        // Determina se o gesto é primariamente horizontal após pequeno limiar
+        if (isHorizontalDrag === null) {
+            if (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8) {
+                isHorizontalDrag = Math.abs(deltaX) > Math.abs(deltaY);
             }
         }
-    });
+
+        // Se for deslizamento horizontal, move as telas gradativamente em tempo real
+        if (isHorizontalDrag) {
+            if (e.cancelable) e.preventDefault();
+
+            const W = tabViewport.offsetWidth || window.innerWidth;
+            let effectiveDelta = deltaX;
+
+            // Efeito elástico (rubber-band) nas extremidades para evitar puxar além dos limites
+            if ((currentTabIndex === 0 && deltaX > 0) || (currentTabIndex === tabBtns.length - 1 && deltaX < 0)) {
+                effectiveDelta = deltaX * 0.28;
+            }
+
+            // Move o track das abas em tempo real acompanhando o dedo
+            const basePercent = -currentTabIndex * 100;
+            const dragPercent = (effectiveDelta / W) * 100;
+            if (tabTrack) {
+                tabTrack.style.transition = 'none';
+                tabTrack.style.transform = `translateX(${basePercent + dragPercent}%)`;
+            }
+
+            // Move a barrinha indicadora das abas sincronizada com o dedo
+            if (tabIndicator && tabBtns.length > 0) {
+                const tabWidth = tabBtns[0].offsetWidth;
+                const progress = currentTabIndex - (effectiveDelta / W);
+                const clampedProgress = Math.max(0, Math.min(tabBtns.length - 1, progress));
+                tabIndicator.style.transition = 'none';
+                updateTabIndicator(clampedProgress);
+            }
+        }
+    }, { passive: false });
+
+    const finishSwipe = () => {
+        if (!isTouchActive) return;
+        isTouchActive = false;
+
+        if (isHorizontalDrag) {
+            const W = tabViewport.offsetWidth || window.innerWidth;
+            const deltaX = dragCurrentX - dragStartX;
+            const timeElapsed = Date.now() - dragStartTime;
+            const velocity = deltaX / (timeElapsed || 1); // px por ms
+
+            const distanceThreshold = W * 0.25; // 25% da largura da tela para confirmar
+            const isFlick = Math.abs(velocity) > 0.35 && Math.abs(deltaX) > 30;
+
+            if ((deltaX < -distanceThreshold || (isFlick && velocity < -0.35)) && currentTabIndex < tabBtns.length - 1) {
+                // Deslizou para esquerda -> próxima aba
+                switchTab(currentTabIndex + 1, true);
+            } else if ((deltaX > distanceThreshold || (isFlick && velocity > 0.35)) && currentTabIndex > 0) {
+                // Deslizou para direita -> aba anterior
+                switchTab(currentTabIndex - 1, true);
+            } else {
+                // Não atingiu o limiar -> retorna suavemente para a aba atual (evita deslizes acidentais)
+                switchTab(currentTabIndex, true);
+            }
+        }
+        isHorizontalDrag = null;
+    };
+
+    tabViewport.addEventListener('touchend', finishSwipe, { passive: true });
+    tabViewport.addEventListener('touchcancel', finishSwipe, { passive: true });
 }

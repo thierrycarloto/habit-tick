@@ -14,6 +14,30 @@
     box-sizing: border-box;
     scrollbar-width: thin;
     scrollbar-color: var(--box-border) transparent;
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Supressão de seleção e outlines azuis ao clicar no celular */
+button, input, select, textarea, a, .tab-btn, .day-box, .timer-circle, .icon-btn, .fab-btn, .picker-item, .color-item, .type-btn, .switch, .cal-box {
+    -webkit-tap-highlight-color: transparent !important;
+    outline: none !important;
+}
+
+button:focus, button:focus-visible,
+input:focus, input:focus-visible,
+[tabindex]:focus, [tabindex]:focus-visible {
+    outline: none !important;
+}
+
+body, .app-container, .tab-btn, .day-box, .timer-circle, .habit-card, .fab-btn, .theme-switch-header, .tabs {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+input[type="text"], input[type="number"], input[type="time"] {
+    -webkit-user-select: text;
+    user-select: text;
 }
 
 /* === Custom Scrollbar (Webkit) === */
@@ -154,6 +178,7 @@ body.light-mode .theme-knob-header {
     display: flex;
     margin-bottom: 24px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
 }
 
 .tab-btn {
@@ -166,21 +191,45 @@ body.light-mode .theme-knob-header {
     font-weight: 500;
     cursor: pointer;
     position: relative;
+    transition: color 0.2s ease;
 }
 
 .tab-btn.active {
     color: var(--text-primary);
 }
 
-.tab-btn.active::after {
-    content: '';
+.tab-indicator {
     position: absolute;
     bottom: -1px;
-    left: 20%;
-    right: 20%;
     height: 2px;
     background-color: var(--accent-green);
     border-radius: 2px 2px 0 0;
+    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), width 0.3s ease;
+    pointer-events: none;
+    left: 0;
+}
+
+/* === Tab Viewport & Smooth Slider (Samsung / ViewPager Style) === */
+.tab-viewport {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+    touch-action: pan-y;
+}
+
+.tab-track {
+    display: flex;
+    width: 100%;
+    will-change: transform;
+    align-items: flex-start;
+    transition: transform 0.32s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.tab-page {
+    flex: 0 0 100%;
+    width: 100%;
+    min-width: 100%;
+    box-sizing: border-box;
 }
 
 /* Filter */
@@ -447,19 +496,75 @@ body.light-mode .theme-knob-header {
 }
 
 .timer-circle {
-    width: 200px;
-    height: 200px;
+    position: relative;
+    width: 220px;
+    height: 220px;
     border-radius: 50%;
-    border: 4px solid var(--accent-green);
+    border: none;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 32px rgba(52, 211, 153, 0.15);
+    box-shadow: 0 0 36px rgba(52, 211, 153, 0.15);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent !important;
+    outline: none !important;
+}
+
+.timer-progress-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+}
+
+.timer-track {
+    stroke: rgba(52, 211, 153, 0.15);
+    stroke-width: 5;
+    fill: none;
+}
+
+body.light-mode .timer-track {
+    stroke: rgba(0, 0, 0, 0.08);
+}
+
+.timer-progress {
+    stroke: var(--accent-green);
+    stroke-width: 5;
+    stroke-linecap: round;
+    fill: none;
+    transform: rotate(-90deg);
+    transform-origin: 110px 110px;
+    stroke-dasharray: 596.9;
+    stroke-dashoffset: 596.9;
+    transition: stroke-dashoffset 0.8s linear;
+}
+
+#timer-dot-group {
+    transform-origin: 110px 110px;
+    transition: transform 0.8s linear;
+}
+
+.timer-dot-glow {
+    fill: rgba(52, 211, 153, 0.4);
+}
+
+.timer-dot {
+    fill: var(--accent-green);
+}
+
+.timer-dot-core {
+    fill: #ffffff;
 }
 
 .time-display {
     font-size: 3rem;
     font-weight: 700;
+    position: relative;
+    z-index: 2;
 }
 
 .focus-desc {
@@ -579,6 +684,81 @@ body.light-mode .theme-knob-header {
     cursor: pointer;
     border: none;
     box-shadow: 0 0 10px rgba(52, 211, 153, 0.4);
+}
+
+/* === Ruler Ticks para Temporizador (Sincronizado de 5 em 5 min) === */
+.ruler-container {
+    position: relative;
+    width: 100%;
+    height: 48px;
+    display: flex;
+    align-items: center;
+}
+
+.ruler-ticks {
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.ruler-tick {
+    width: 2px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 1px;
+    transition: background-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.ruler-tick.tick-small {
+    height: 8px;
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.ruler-tick.tick-medium {
+    height: 15px;
+    background-color: rgba(255, 255, 255, 0.45);
+}
+
+.ruler-tick.tick-large {
+    height: 24px;
+    background-color: rgba(255, 255, 255, 0.8);
+}
+
+.ruler-tick.passed {
+    background-color: rgba(52, 211, 153, 0.45);
+}
+
+.ruler-tick.active-tick {
+    background-color: var(--accent-green);
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.9);
+    transform: scaleY(1.15);
+}
+
+body.light-mode .ruler-tick.tick-small {
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+body.light-mode .ruler-tick.tick-medium {
+    background-color: rgba(0, 0, 0, 0.45);
+}
+
+body.light-mode .ruler-tick.tick-large {
+    background-color: rgba(0, 0, 0, 0.75);
+}
+
+body.light-mode .ruler-tick.passed {
+    background-color: rgba(52, 211, 153, 0.45);
+}
+
+body.light-mode .ruler-tick.active-tick {
+    background-color: var(--accent-green);
 }
 
 /* Light mode overrides for Timer Slider */

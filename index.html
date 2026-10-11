@@ -38,41 +38,55 @@
         </header>
 
         <nav class="tabs">
-            <button class="tab-btn active" data-target="tab-visto">Visto</button>
-            <button class="tab-btn" data-target="tab-medir">Mensal</button>
-            <button class="tab-btn" data-target="tab-foco">Foco</button>
+            <button class="tab-btn active" data-index="0" data-target="tab-visto">Visto</button>
+            <button class="tab-btn" data-index="1" data-target="tab-medir">Mensal</button>
+            <button class="tab-btn" data-index="2" data-target="tab-foco">Foco</button>
+            <div class="tab-indicator" id="tab-indicator"></div>
         </nav>
 
-        <!-- Tab: Visto (Weekly) -->
-        <main id="tab-visto" class="tab-content active">
-            <div class="habit-list" id="weekly-habit-list">
-                <!-- Habits will be rendered here via JS -->
-            </div>
-        </main>
+        <div class="tab-viewport" id="tab-viewport">
+            <div class="tab-track" id="tab-track">
+                <!-- Tab: Visto (Weekly) -->
+                <main id="tab-visto" class="tab-page tab-content active">
+                    <div class="habit-list" id="weekly-habit-list">
+                        <!-- Habits will be rendered here via JS -->
+                    </div>
+                </main>
 
-        <!-- Tab: Medir (Monthly) -->
-        <main id="tab-medir" class="tab-content hidden">
-            <div class="month-nav-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; background: var(--card-bg); padding: 12px 24px; border-radius: var(--border-radius); border: 1px solid rgba(255, 255, 255, 0.05);">
-                <button id="prev-month-btn" class="icon-btn"><i class="fa-solid fa-chevron-left"></i></button>
-                <span id="current-month-display" style="font-weight: 600; font-size: 1.1rem; text-transform: capitalize;"></span>
-                <button id="next-month-btn" class="icon-btn" disabled style="opacity: 0.3;"><i class="fa-solid fa-chevron-right"></i></button>
-            </div>
-            <div class="habit-list" id="monthly-habit-list">
-                <!-- Monthly habits will be rendered here via JS -->
-            </div>
-        </main>
+                <!-- Tab: Medir (Monthly) -->
+                <main id="tab-medir" class="tab-page tab-content">
+                    <div class="month-nav-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; background: var(--card-bg); padding: 12px 24px; border-radius: var(--border-radius); border: 1px solid rgba(255, 255, 255, 0.05);">
+                        <button id="prev-month-btn" class="icon-btn"><i class="fa-solid fa-chevron-left"></i></button>
+                        <span id="current-month-display" style="font-weight: 600; font-size: 1.1rem; text-transform: capitalize;"></span>
+                        <button id="next-month-btn" class="icon-btn" disabled style="opacity: 0.3;"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                    <div class="habit-list" id="monthly-habit-list">
+                        <!-- Monthly habits will be rendered here via JS -->
+                    </div>
+                </main>
 
-        <!-- Tab: Foco (Timer) -->
-        <main id="tab-foco" class="tab-content hidden">
-            <div class="focus-body">
-                <input type="hidden" id="timer-input" value="25">
-                <div class="timer-circle" id="timer-circle-clickable" style="cursor: pointer;" title="Clique para alterar o tempo">
-                    <span class="time-display">25:00</span>
-                </div>
-                <p class="focus-desc">Fique longe do celular e foque no que importa.</p>
-                <button class="primary-btn start-timer-btn">Iniciar Foco</button>
+                <!-- Tab: Foco (Timer) -->
+                <main id="tab-foco" class="tab-page tab-content">
+                    <div class="focus-body">
+                        <input type="hidden" id="timer-input" value="25">
+                        <div class="timer-circle" id="timer-circle-clickable" style="cursor: pointer;" title="Clique para alterar o tempo">
+                            <svg class="timer-progress-svg" viewBox="0 0 220 220">
+                                <circle class="timer-track" cx="110" cy="110" r="95"></circle>
+                                <circle class="timer-progress" id="timer-progress-ring" cx="110" cy="110" r="95"></circle>
+                                <g id="timer-dot-group" transform="rotate(0 110 110)">
+                                    <circle class="timer-dot-glow" cx="110" cy="15" r="9"></circle>
+                                    <circle class="timer-dot" cx="110" cy="15" r="5.5"></circle>
+                                    <circle class="timer-dot-core" cx="110" cy="15" r="2"></circle>
+                                </g>
+                            </svg>
+                            <span class="time-display">25:00</span>
+                        </div>
+                        <p class="focus-desc">Fique longe do celular e foque no que importa.</p>
+                        <button class="primary-btn start-timer-btn">Iniciar Foco</button>
+                    </div>
+                </main>
             </div>
-        </main>
+        </div>
 
         <button class="fab-btn" id="add-habit-btn">
             <i class="fa-solid fa-plus"></i>
@@ -195,9 +209,9 @@
             <div style="position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 40px; padding: 0 16px;">
                 <i class="fa-regular fa-clock" style="position: absolute; left: 0; color: var(--text-secondary); font-size: 1.2rem;"></i>
                 
-                <div style="position: relative; width: 100%; margin-left: 32px; height: 40px;">
-                    <div style="position: absolute; top: 12px; left: 0; right: 0; height: 16px; background: repeating-linear-gradient(to right, var(--text-secondary) 0, var(--text-secondary) 2px, transparent 2px, transparent 10%); opacity: 0.5; pointer-events: none;"></div>
-                    <input type="range" id="modal-timer-range" min="5" max="180" step="5" value="25" style="width: 100%; height: 40px; margin: 0; background: transparent; cursor: pointer; position: relative; z-index: 2;" class="custom-range">
+                <div class="ruler-container" style="position: relative; width: 100%; margin-left: 32px; height: 48px;">
+                    <div class="ruler-ticks" id="ruler-ticks"></div>
+                    <input type="range" id="modal-timer-range" min="5" max="180" step="5" value="25" style="width: 100%; height: 48px; margin: 0; background: transparent; cursor: pointer; position: relative; z-index: 2;" class="custom-range">
                 </div>
             </div>
             
