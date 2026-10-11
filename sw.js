@@ -1,4 +1,4 @@
-const CACHE_NAME = 'habit-tick-v5';
+const CACHE_NAME = 'habit-tick-v6';
 const ASSETS = [
     './',
     './index.html',
@@ -49,4 +49,20 @@ self.addEventListener('message', event => {
     if (event.data === 'SKIP_WAITING') {
         self.skipWaiting();
     }
+});
+
+self.addEventListener('notificationclick', event => {
+    event.notification.close();
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+            for (const client of clientList) {
+                if (client.url && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            if (clients.openWindow) {
+                return clients.openWindow('./');
+            }
+        })
+    );
 });

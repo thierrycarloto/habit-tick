@@ -72,7 +72,7 @@ body {
     min-height: 100vh;
     padding: 24px 16px;
     position: relative;
-    padding-bottom: 80px;
+    padding-bottom: 64px;
 }
 
 .tab-content {
@@ -215,11 +215,13 @@ body.light-mode .theme-knob-header {
     overflow: hidden;
     position: relative;
     touch-action: pan-y;
+    transition: height 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .tab-track {
     display: flex;
     width: 100%;
+    gap: 32px;
     will-change: transform;
     align-items: flex-start;
     transition: transform 0.32s cubic-bezier(0.25, 1, 0.5, 1);
@@ -544,6 +546,7 @@ body.light-mode .timer-track {
 }
 
 #timer-dot-group {
+    transform-box: view-box;
     transform-origin: 110px 110px;
     transition: transform 0.8s linear;
 }
@@ -594,6 +597,49 @@ body.light-mode .timer-track {
 
 .primary-btn:active {
     transform: scale(0.98);
+}
+
+/* === Modo Foco Centralizado Sem Rolagem === */
+body.focus-mode-active {
+    overflow: hidden !important;
+    height: 100vh;
+    height: 100dvh;
+}
+
+body.focus-mode-active .app-container {
+    height: 100vh;
+    height: 100dvh;
+    min-height: auto;
+    overflow: hidden;
+    padding-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+body.focus-mode-active .tab-viewport {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    height: 100% !important;
+}
+
+body.focus-mode-active .tab-track {
+    height: 100%;
+    align-items: stretch;
+}
+
+body.focus-mode-active #tab-foco {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+body.focus-mode-active #tab-foco .focus-body {
+    margin: auto 0;
+    gap: 24px;
 }
 
 /* === Mensal === */

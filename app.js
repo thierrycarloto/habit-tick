@@ -71,6 +71,8 @@ const tabTrack = document.getElementById('tab-track');
 const tabViewport = document.getElementById('tab-viewport');
 const tabIndicator = document.getElementById('tab-indicator');
 const tabBtns = Array.from(document.querySelectorAll('.tab-btn'));
+const tabPages = Array.from(document.querySelectorAll('.tab-page'));
+const TAB_GAP = 32;
 
 function updateTabIndicator(progress) {
     if (!tabIndicator || tabBtns.length === 0) return;
@@ -82,10 +84,32 @@ function updateTabIndicator(progress) {
     tabIndicator.style.transform = `translateX(${x}px)`;
 }
 
+function updateViewportHeight(animate = false) {
+    if (!tabViewport || tabPages.length === 0) return;
+    if (currentTabIndex === 2) {
+        tabViewport.style.height = '';
+        return;
+    }
+    const activePage = tabPages[currentTabIndex];
+    if (activePage) {
+        const h = activePage.offsetHeight;
+        if (h > 0) {
+            tabViewport.style.transition = animate ? 'height 0.3s cubic-bezier(0.25, 1, 0.5, 1)' : 'none';
+            tabViewport.style.height = `${h}px`;
+        }
+    }
+}
+
 function switchTab(index, animate = true) {
     if (index < 0) index = 0;
     if (index >= tabBtns.length) index = tabBtns.length - 1;
     currentTabIndex = index;
+
+    if (currentTabIndex === 2) {
+        document.body.classList.add('focus-mode-active');
+    } else {
+        document.body.classList.remove('focus-mode-active');
+    }
 
     if (tabTrack) {
         if (animate) {
@@ -93,7 +117,7 @@ function switchTab(index, animate = true) {
         } else {
             tabTrack.style.transition = 'none';
         }
-        tabTrack.style.transform = `translateX(-${index * 100}%)`;
+        tabTrack.style.transform = `translateX(calc(-${index} * (100% + ${TAB_GAP}px)))`;
     }
 
     if (tabIndicator) {
@@ -109,12 +133,17 @@ function switchTab(index, animate = true) {
         btn.classList.toggle('active', i === index);
     });
 
+    tabPages.forEach((page, i) => {
+        page.classList.toggle('active', i === index);
+    });
+
     const fabBtn = document.getElementById('add-habit-btn');
     if (fabBtn) {
         fabBtn.style.display = index === 2 ? 'none' : 'flex';
     }
 
     renderViews();
+    updateViewportHeight(animate);
 }
 
 tabBtns.forEach((btn, index) => {
@@ -125,6 +154,7 @@ tabBtns.forEach((btn, index) => {
 
 window.addEventListener('resize', () => {
     updateTabIndicator(currentTabIndex);
+    updateViewportHeight(false);
 });
 
 // === Renderização ===
@@ -164,6 +194,7 @@ function calculateStreak(habit) {
 function renderViews() {
     renderWeeklyView();
     renderMonthlyView();
+    updateViewportHeight(false);
 }
 
 function renderWeeklyView() {
@@ -235,12 +266,13 @@ function renderWeeklyView() {
             `;
         });
 
-        let streakCountText = '';
+        let streakHtml = '';
         if (habit.type === 'tempo') {
-            streakCountText = `${habit.totalFocusTime || 0} min focados`;
+            streakHtml = `${habit.totalFocusTime || 0} min focados &bull; ${doneThisWeek} na semana`;
         } else {
             const streakCount = calculateStreak(habit);
-            streakCountText = `Sequência: ${streakCount}`;
+            const fireIcon = streakCount >= 2 ? '<i class="fa-solid fa-fire" style="color: #f97316;"></i> ' : '';
+            streakHtml = `${fireIcon}Sequência: ${streakCount} &bull; ${doneThisWeek} na semana`;
         }
 
         card.innerHTML = `
@@ -251,8 +283,7 @@ function renderWeeklyView() {
                 <div class="habit-info">
                     <h2>${habit.name}</h2>
                     <span class="streak">
-                        <i class="fa-solid fa-fire" style="color: #f97316;"></i> 
-                        ${streakCountText} &bull; ${doneThisWeek} na semana
+                        ${streakHtml}
                     </span>
                 </div>
                 <button class="menu-btn edit-habit-btn" data-id="${habit.id}"><i class="fa-solid fa-pencil"></i></button>
@@ -388,12 +419,13 @@ function renderMonthlyView() {
             
         html += `</div></div>`;
 
-        let streakCountText = '';
+        let streakHtml = '';
         if (habit.type === 'tempo') {
-            streakCountText = `${habit.totalFocusTime || 0} min focados`;
+            streakHtml = `${doneTotal} concluídos &bull; ${habit.totalFocusTime || 0} min focados`;
         } else {
             const streakCount = calculateStreak(habit);
-            streakCountText = `Sequência: ${streakCount}`;
+            const fireIcon = streakCount >= 2 ? '<i class="fa-solid fa-fire" style="color: #f97316;"></i> ' : '';
+            streakHtml = `${doneTotal} concluídos &bull; ${fireIcon}Sequência: ${streakCount}`;
         }
 
         card.innerHTML = `
@@ -403,7 +435,7 @@ function renderMonthlyView() {
                 </div>
                 <div class="habit-info">
                     <h2 style="font-size: 1.1rem; margin-bottom: 4px;">${habit.name}</h2>
-                    <span class="streak" style="font-size: 0.8rem; color: var(--text-secondary);">${doneTotal} concluídos &bull; <i class="fa-solid fa-fire" style="color: #f97316;"></i> ${streakCountText}</span>
+                    <span class="streak" style="font-size: 0.8rem; color: var(--text-secondary);">${streakHtml}</span>
                 </div>
             </div>
             <div class="months-container">
@@ -412,6 +444,7 @@ function renderMonthlyView() {
         `;
         container.appendChild(card);
     });
+    updateViewportHeight(false);
 }
 
 // === Modal de Hábito ===
@@ -421,8 +454,22 @@ const habitForm = document.getElementById('habit-form');
 
 const reminderCheckbox = document.getElementById('habit-reminder-enabled');
 const reminderTimeGroup = document.getElementById('reminder-time-group');
-reminderCheckbox.addEventListener('change', (e) => {
+reminderCheckbox.addEventListener('change', async (e) => {
     reminderTimeGroup.style.display = e.target.checked ? 'block' : 'none';
+    if (e.target.checked) {
+        if ('Notification' in window) {
+            if (Notification.permission === 'default') {
+                const perm = await Notification.requestPermission();
+                if (perm !== 'granted') {
+                    customAlert('As notificações não foram autorizadas. Ative as notificações nas configurações do seu navegador para receber os avisos.');
+                }
+            } else if (Notification.permission === 'denied') {
+                customAlert('As notificações estão bloqueadas nas configurações do seu navegador. Por favor, autorize as notificações para que os lembretes funcionem.');
+            }
+        } else {
+            customAlert('Seu dispositivo ou navegador não suporta notificações.');
+        }
+    }
 });
 
 // Modal UI Logic
@@ -545,12 +592,12 @@ function openModal(habitId = null) {
     modal.classList.remove('hidden');
 }
 
-habitForm.addEventListener('submit', (e) => {
+habitForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     // Solicitar permissão de notificação se a pessoa ativou o lembrete
     if (reminderCheckbox.checked && 'Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
+        await Notification.requestPermission();
     }
 
     const id = document.getElementById('habit-id').value || Date.now().toString();
@@ -663,7 +710,7 @@ function updateTimeDisplay() {
 
         // A bolinha viaja gradativamente pelo círculo todo
         const angle = progress * 360;
-        timerDotGroup.setAttribute('transform', `rotate(${angle} 110 110)`);
+        timerDotGroup.style.transform = `rotate(${angle}deg)`;
     }
 }
 
@@ -814,12 +861,11 @@ startTimerBtn.addEventListener('click', () => {
                 startTimerBtn.classList.remove('btn-danger');
                 timerInput.disabled = false;
 
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    new Notification('Tempo de foco concluído!', {
-                        body: 'Você conseguiu manter o foco! Hora de uma pequena pausa.',
-                        icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%2334d399"/><text x="50" y="65" font-size="40" font-family="sans-serif" font-weight="bold" fill="%23fff" text-anchor="middle">H</text></svg>'
-                    });
-                } else {
+                showAppNotification('Tempo de foco concluído!', {
+                    body: 'Você conseguiu manter o foco! Hora de uma pequena pausa.',
+                    tag: 'focus-completed'
+                });
+                if (!('Notification' in window) || Notification.permission !== 'granted') {
                     customAlert('Tempo de foco concluído!');
                 }
 
@@ -906,14 +952,48 @@ function customAlert(message) {
     dialog.classList.remove('hidden');
 }
 
+// === Sistema de Notificações Unificado (Suporte PWA / Android Mobile) ===
+async function showAppNotification(title, options = {}) {
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+
+    const defaultOptions = {
+        icon: './novo_icone.png',
+        badge: './novo_icone.png',
+        vibrate: [200, 100, 200],
+        ...options
+    };
+
+    if ('serviceWorker' in navigator) {
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            if (reg && reg.showNotification) {
+                await reg.showNotification(title, defaultOptions);
+                return;
+            }
+        } catch (e) {
+            console.warn('Falha ao exibir notificacao via Service Worker:', e);
+        }
+    }
+
+    try {
+        new Notification(title, defaultOptions);
+    } catch (e) {
+        console.warn('Falha no construtor Notification:', e);
+    }
+}
+
 // === Verificador de Alarmes (Notificações) ===
-setInterval(checkAlarms, 60000); // Roda a cada minuto
+setInterval(checkAlarms, 20000); // Roda a cada 20 segundos
 
 function checkAlarms() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
     const now = new Date();
     const currentHr = String(now.getHours()).padStart(2, '0');
     const currentMin = String(now.getMinutes()).padStart(2, '0');
     const timeStr = `${currentHr}:${currentMin}`;
+    const currentMinutesOfDay = now.getHours() * 60 + now.getMinutes();
 
     const todayJsDay = now.getDay();
     const todayDateStr = formatDate(now);
@@ -921,19 +1001,22 @@ function checkAlarms() {
     let changed = false;
 
     state.habits.forEach(habit => {
-        if (habit.reminderEnabled && habit.reminderTime === timeStr) {
+        if (habit.reminderEnabled && habit.reminderTime) {
             // Verificar se é dia ativo e não foi completado hoje
-            if (habit.activeDays.includes(todayJsDay) && !habit.records[todayDateStr]) {
-                // Notificar apenas uma vez no dia (previne múltiplos envios no mesmo minuto)
-                if (habit.lastNotified !== todayDateStr) {
-                    if ('Notification' in window && Notification.permission === 'granted') {
-                        new Notification(`Lembrete: ${habit.name}`, {
-                            body: `Está na hora de concluir o seu hábito: ${habit.name}!`,
-                            icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%2334d399"/><text x="50" y="65" font-size="40" font-family="sans-serif" font-weight="bold" fill="%23fff" text-anchor="middle">H</text></svg>'
-                        });
-                        habit.lastNotified = todayDateStr;
-                        changed = true;
-                    }
+            if (habit.activeDays && habit.activeDays.includes(todayJsDay) && !habit.records[todayDateStr]) {
+                const [rHr, rMin] = habit.reminderTime.split(':').map(Number);
+                const reminderMinutes = rHr * 60 + rMin;
+
+                const isExactTime = habit.reminderTime === timeStr;
+                const isRecentWindow = (currentMinutesOfDay >= reminderMinutes && currentMinutesOfDay <= reminderMinutes + 3);
+
+                if ((isExactTime || isRecentWindow) && habit.lastNotified !== todayDateStr) {
+                    showAppNotification(`Lembrete: ${habit.name}`, {
+                        body: `Está na hora de concluir o seu hábito: ${habit.name}!`,
+                        tag: `reminder-${habit.id}-${todayDateStr}`
+                    });
+                    habit.lastNotified = todayDateStr;
+                    changed = true;
                 }
             }
         }
@@ -942,8 +1025,12 @@ function checkAlarms() {
     if (changed) saveState();
 }
 
-// Chamar uma vez no inicio
-setTimeout(checkAlarms, 2000);
+setTimeout(checkAlarms, 1000);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        checkAlarms();
+    }
+});
 
 // === Transição Gradual ao Deslizar Entre Abas (Estilo Celulares Samsung) ===
 let dragStartX = 0;
@@ -995,6 +1082,7 @@ if (tabViewport) {
             if (e.cancelable) e.preventDefault();
 
             const W = tabViewport.offsetWidth || window.innerWidth;
+            const pageSpan = W + TAB_GAP;
             let effectiveDelta = deltaX;
 
             // Efeito elástico (rubber-band) nas extremidades para evitar puxar além dos limites
@@ -1002,21 +1090,33 @@ if (tabViewport) {
                 effectiveDelta = deltaX * 0.28;
             }
 
-            // Move o track das abas em tempo real acompanhando o dedo
-            const basePercent = -currentTabIndex * 100;
-            const dragPercent = (effectiveDelta / W) * 100;
+            // Move o track das abas em tempo real acompanhando o dedo com espaçamento
+            const baseOffset = -currentTabIndex * pageSpan;
+            const currentOffset = baseOffset + effectiveDelta;
             if (tabTrack) {
                 tabTrack.style.transition = 'none';
-                tabTrack.style.transform = `translateX(${basePercent + dragPercent}%)`;
+                tabTrack.style.transform = `translateX(${currentOffset}px)`;
             }
 
             // Move a barrinha indicadora das abas sincronizada com o dedo
             if (tabIndicator && tabBtns.length > 0) {
-                const tabWidth = tabBtns[0].offsetWidth;
-                const progress = currentTabIndex - (effectiveDelta / W);
+                const progress = -currentOffset / pageSpan;
                 const clampedProgress = Math.max(0, Math.min(tabBtns.length - 1, progress));
                 tabIndicator.style.transition = 'none';
                 updateTabIndicator(clampedProgress);
+            }
+
+            // Transição gradual de altura ao deslizar entre abas adjacentes
+            if (currentTabIndex !== 2 && tabPages.length > 0) {
+                const targetIdx = deltaX < 0 ? Math.min(tabBtns.length - 1, currentTabIndex + 1) : Math.max(0, currentTabIndex - 1);
+                if (targetIdx !== 2) {
+                    const hCurrent = tabPages[currentTabIndex].offsetHeight;
+                    const hTarget = tabPages[targetIdx].offsetHeight;
+                    const dragRatio = Math.min(1, Math.abs(effectiveDelta) / W);
+                    const interpHeight = hCurrent + (hTarget - hCurrent) * dragRatio;
+                    tabViewport.style.transition = 'none';
+                    tabViewport.style.height = `${interpHeight}px`;
+                }
             }
         }
     }, { passive: false });
@@ -1031,7 +1131,7 @@ if (tabViewport) {
             const timeElapsed = Date.now() - dragStartTime;
             const velocity = deltaX / (timeElapsed || 1); // px por ms
 
-            const distanceThreshold = W * 0.25; // 25% da largura da tela para confirmar
+            const distanceThreshold = W * 0.22; // 22% da largura da tela para confirmar
             const isFlick = Math.abs(velocity) > 0.35 && Math.abs(deltaX) > 30;
 
             if ((deltaX < -distanceThreshold || (isFlick && velocity < -0.35)) && currentTabIndex < tabBtns.length - 1) {
