@@ -1547,6 +1547,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateFocusHabitDisplay();
     updateTimeDisplay();
     switchTab(0, false);
+    setupBackupHandlers();
 });
 
 // === Modal de Diálogo Customizado (Alert / Confirm) ===
@@ -1604,8 +1605,8 @@ async function showAppNotification(title, options = {}) {
     if (Notification.permission !== 'granted') return;
 
     const defaultOptions = {
-        icon: './novo_icone.png',
-        badge: './novo_icone.png',
+        icon: './icon-192.png',
+        badge: './icon-192.png',
         vibrate: [200, 100, 200],
         ...options
     };
@@ -1692,9 +1693,11 @@ if (tabViewport) {
         const modal = document.getElementById('habit-modal');
         const tModal = document.getElementById('timer-slider-modal');
         const cModal = document.getElementById('custom-dialog-modal');
+        const bModal = document.getElementById('backup-modal');
         if (modal && !modal.classList.contains('hidden')) return;
         if (tModal && !tModal.classList.contains('hidden')) return;
         if (cModal && !cModal.classList.contains('hidden')) return;
+        if (bModal && !bModal.classList.contains('hidden')) return;
 
         // Não interceptar sliders internos
         if (e.target.closest('#modal-timer-range, input[type="range"]')) return;
@@ -1796,4 +1799,106 @@ if (tabViewport) {
 
     tabViewport.addEventListener('touchend', finishSwipe, { passive: true });
     tabViewport.addEventListener('touchcancel', finishSwipe, { passive: true });
+}
+
+// === Backup & Restauração de Dados ===
+function setupBackupHandlers() {
+    const backupBtn = document.getElementById('backup-btn');
+    const backupModal = document.getElementById('backup-modal');
+    const closeBackupModalBtn = document.getElementById('close-backup-modal-btn');
+    const exportBtn = document.getElementById('export-backup-btn');
+    const importBtn = document.getElementById('import-backup-btn');
+    const fileInput = document.getElementById('import-backup-file-input');
+
+    if (!backupBtn || !backupModal) return;
+
+    backupBtn.addEventListener('click', () => {
+        backupModal.classList.remove('hidden');
+    });
+
+    if (closeBackupModalBtn) {
+        closeBackupModalBtn.addEventListener('click', () => {
+            backupModal.classList.add('hidden');
+        });
+    }
+
+    backupModal.addEventListener('click', (e) => {
+        if (e.target === backupModal) {
+            backupModal.classList.add('hidden');
+        }
+    });
+
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            try {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.setAttribute("href", dataStr);
+                const d = new Date();
+                const filename = `habit-tick-backup-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`;
+                downloadAnchor.setAttribute("download", filename);
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+                if (typeof customAlert === 'function') {
+                    customAlert('Backup exportado com sucesso! Salve este arquivo em um local seguro.');
+                }
+            } catch (err) {
+                console.error('Erro ao exportar backup:', err);
+                if (typeof customAlert === 'function') {
+                    customAlert('Falha ao exportar backup.');
+                }
+            }
+        });
+    }
+
+    if (importBtn && fileInput) {
+        importBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const imported = JSON.parse(event.target.result);
+                    if (!imported || !Array.isArray(imported.habits)) {
+                        throw new Error('Arquivo de backup inválido.');
+                    }
+
+                    const confirmRestore = () => {
+                        state = imported;
+                        saveState();
+                        renderViews();
+                        backupModal.classList.add('hidden');
+                        fileInput.value = '';
+                        if (typeof customAlert === 'function') {
+                            customAlert('Progresso restaurado com sucesso!');
+                        }
+                    };
+
+                    if (typeof customConfirm === 'function') {
+                        customConfirm('Deseja restaurar este backup? Os dados atuais serão substituídos pelos do arquivo.', (ok) => {
+                            if (ok) confirmRestore();
+                            else fileInput.value = '';
+                        });
+                    } else if (confirm('Deseja restaurar este backup? Os dados atuais serão substituídos.')) {
+                        confirmRestore();
+                    } else {
+                        fileInput.value = '';
+                    }
+                } catch (err) {
+                    console.error('Erro ao importar backup:', err);
+                    if (typeof customAlert === 'function') {
+                        customAlert('Erro ao ler o arquivo de backup. Certifique-se de que é um JSON válido exportado do Habit Tick.');
+                    }
+                    fileInput.value = '';
+                }
+            };
+            reader.readAsText(file);
+        });
+    }
 }

@@ -7,10 +7,10 @@
     <title>Habit Tick - Clone</title>
     <meta name="description" content="Aplicativo de monitoramento de hábitos inspirado no Habit Tick">
     <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="novo_icone.png" type="image/png">
-    <link rel="shortcut icon" href="novo_icone.png" type="image/png">
-    <link rel="apple-touch-icon" href="novo_icone.png">
+    <link rel="manifest" href="manifest.json?v=8">
+    <link rel="icon" href="icon-192.png?v=8" type="image/png">
+    <link rel="shortcut icon" href="icon-192.png?v=8" type="image/png">
+    <link rel="apple-touch-icon" href="icon-192.png?v=8">
     <meta name="theme-color" content="#0b0b0d">
     <link rel="stylesheet" href="style.css">
     <!-- Google Fonts: Inter -->
@@ -26,6 +26,9 @@
         <header class="app-header">
             <h1 class="date-title" id="main-date-title">Hoje</h1>
             <div class="header-icons">
+                <button type="button" id="backup-btn" class="icon-btn" title="Backup e Dados" aria-label="Backup e Dados" style="font-size: 1.15rem; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-cloud-arrow-down"></i>
+                </button>
                 <label class="theme-switch-header">
                     <input type="checkbox" id="theme-toggle-checkbox">
                     <span class="theme-slider-header">
@@ -237,6 +240,28 @@
             </div>
             
             <button id="timer-slider-confirm-btn" class="primary-btn" style="width: 100%; max-width: none; border-radius: 24px; padding: 16px; font-size: 1rem;">Confirmar</button>
+        </div>
+    </div>
+
+    <!-- Backup / Restore Modal -->
+    <div id="backup-modal" class="modal hidden" style="z-index: 2600;">
+        <div class="modal-content" style="max-width: 360px; padding: 24px; border-radius: 24px; text-align: center;">
+            <header class="modal-header" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="font-size: 1.15rem; color: var(--text-primary); font-weight: 600;">Backup de Dados</h3>
+                <button class="icon-btn" id="close-backup-modal-btn"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; margin-bottom: 22px; text-align: left;">
+                Seus hábitos e foco ficam salvos na memória deste aparelho. Exporte uma cópia de segurança em arquivo para nunca perder seus progressos!
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button type="button" id="export-backup-btn" class="primary-btn" style="width: 100%; max-width: none; border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 0.95rem;">
+                    <i class="fa-solid fa-download"></i> Fazer Backup (Exportar)
+                </button>
+                <button type="button" id="import-backup-btn" class="preset-btn" style="width: 100%; border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 0.95rem; font-weight: 500; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--box-border); color: var(--text-primary);">
+                    <i class="fa-solid fa-upload"></i> Restaurar Backup (Importar)
+                </button>
+                <input type="file" id="import-backup-file-input" accept=".json,application/json" style="display: none;">
+            </div>
         </div>
     </div>
 

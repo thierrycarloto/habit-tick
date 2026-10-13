@@ -99,6 +99,7 @@ body {
 .header-icons {
     display: flex;
     gap: 16px;
+    align-items: center;
 }
 
 .icon-btn {
