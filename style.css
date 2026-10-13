@@ -697,114 +697,145 @@ body.focus-mode-active #tab-foco .focus-body {
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
-/* === Custom Range Input para Timer Modal === */
-.custom-range {
-    -webkit-appearance: none;
-    appearance: none;
-    background: transparent;
-    cursor: pointer;
-}
-
-.custom-range::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 6px;
-    height: 32px;
-    background-color: var(--accent-green);
-    border-radius: 4px;
-    cursor: pointer;
-    box-shadow: 0 0 10px rgba(52, 211, 153, 0.4);
-    transition: transform 0.1s;
-}
-
-.custom-range::-webkit-slider-thumb:hover,
-.custom-range::-webkit-slider-thumb:active {
-    transform: scaleY(1.15);
-}
-
-.custom-range::-moz-range-thumb {
-    width: 6px;
-    height: 32px;
-    background-color: var(--accent-green);
-    border-radius: 4px;
-    cursor: pointer;
-    border: none;
-    box-shadow: 0 0 10px rgba(52, 211, 153, 0.4);
-}
-
-/* === Ruler Ticks para Temporizador (Sincronizado de 5 em 5 min) === */
-.ruler-container {
+/* === Draggable Centered-Needle Ruler (Régua com Agulha Central Fixa) === */
+.ruler-viewport-wrapper {
     position: relative;
     width: 100%;
-    height: 48px;
+    height: 76px;
+    margin: 8px 0 20px;
     display: flex;
     align-items: center;
+    justify-content: center;
 }
 
-.ruler-ticks {
+.ruler-viewport {
+    position: relative;
+    width: 100%;
+    height: 76px;
+    overflow: hidden;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    mask-image: linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
+}
+
+.ruler-viewport:active {
+    cursor: grabbing;
+}
+
+.ruler-needle {
     position: absolute;
-    left: 3px;
-    right: 3px;
-    top: 50%;
-    transform: translateY(-50%);
-    height: 32px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    left: 50%;
+    top: 2px;
+    bottom: 20px;
+    width: 3px;
+    transform: translateX(-50%);
+    background-color: var(--accent-green);
+    border-radius: 3px;
+    box-shadow: 0 0 12px rgba(52, 211, 153, 0.9);
+    z-index: 10;
     pointer-events: none;
-    z-index: 1;
 }
 
-.ruler-tick {
+.ruler-needle::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid var(--accent-green);
+}
+
+.ruler-track {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    will-change: transform;
+    pointer-events: auto;
+}
+
+.ruler-tick-item {
+    position: absolute;
+    top: 6px;
+    width: 32px;
+    margin-left: -16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+}
+
+.ruler-tick-bar {
     width: 2px;
-    background-color: rgba(255, 255, 255, 0.2);
     border-radius: 1px;
-    transition: background-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    background-color: rgba(255, 255, 255, 0.22);
+    transition: background-color 0.15s, transform 0.15s, box-shadow 0.15s;
 }
 
-.ruler-tick.tick-small {
-    height: 8px;
-    background-color: rgba(255, 255, 255, 0.2);
+.ruler-tick-item.small .ruler-tick-bar {
+    height: 12px;
 }
 
-.ruler-tick.tick-medium {
-    height: 15px;
-    background-color: rgba(255, 255, 255, 0.45);
+.ruler-tick-item.medium .ruler-tick-bar {
+    height: 20px;
+    background-color: rgba(255, 255, 255, 0.5);
 }
 
-.ruler-tick.tick-large {
-    height: 24px;
-    background-color: rgba(255, 255, 255, 0.8);
+.ruler-tick-item.large .ruler-tick-bar {
+    height: 30px;
+    width: 2.5px;
+    background-color: rgba(255, 255, 255, 0.85);
 }
 
-.ruler-tick.passed {
-    background-color: rgba(52, 211, 153, 0.45);
-}
-
-.ruler-tick.active-tick {
+.ruler-tick-item.active .ruler-tick-bar {
     background-color: var(--accent-green);
-    box-shadow: 0 0 8px rgba(52, 211, 153, 0.9);
     transform: scaleY(1.15);
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.8);
 }
 
-body.light-mode .ruler-tick.tick-small {
-    background-color: rgba(0, 0, 0, 0.2);
+.ruler-tick-label {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    font-weight: 500;
+    pointer-events: none;
+    user-select: none;
 }
 
-body.light-mode .ruler-tick.tick-medium {
-    background-color: rgba(0, 0, 0, 0.45);
+.ruler-tick-item.active .ruler-tick-label {
+    color: var(--accent-green);
+    font-weight: 700;
 }
 
-body.light-mode .ruler-tick.tick-large {
-    background-color: rgba(0, 0, 0, 0.75);
+.ruler-presets {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
 }
 
-body.light-mode .ruler-tick.passed {
-    background-color: rgba(52, 211, 153, 0.45);
+.preset-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--box-border);
+    color: var(--text-secondary);
+    padding: 7px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
-body.light-mode .ruler-tick.active-tick {
-    background-color: var(--accent-green);
+.preset-btn:hover, .preset-btn.active {
+    background: rgba(52, 211, 153, 0.15);
+    border-color: var(--accent-green);
+    color: var(--accent-green);
 }
 
 /* Light mode overrides for Timer Slider */
@@ -1077,4 +1108,275 @@ body.light-mode .time-input::-webkit-calendar-picker-indicator {
 
 body.light-mode .habit-card {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* === Focus Habit Tag & Selector === */
+.focus-habit-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--box-border);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 8px;
+    user-select: none;
+}
+
+.focus-habit-tag:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent-green);
+    transform: translateY(-1px);
+}
+
+.timer-sublabel {
+    font-size: 0.85rem;
+    color: var(--accent-green);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    position: absolute;
+    bottom: 38px;
+    z-index: 2;
+    transition: opacity 0.2s;
+}
+
+/* Stopwatch Pulse */
+@keyframes stopwatch-glow {
+    0% {
+        box-shadow: 0 0 24px rgba(52, 211, 153, 0.15);
+    }
+    50% {
+        box-shadow: 0 0 54px rgba(52, 211, 153, 0.45);
+    }
+    100% {
+        box-shadow: 0 0 24px rgba(52, 211, 153, 0.15);
+    }
+}
+
+.timer-circle.stopwatch-running {
+    animation: stopwatch-glow 2.4s infinite ease-in-out;
+}
+
+.btn-finish-focus {
+    background-color: var(--accent-green) !important;
+    color: #000 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 16px rgba(52, 211, 153, 0.4);
+}
+
+/* === Focus Analytics Submenu & Charts (Aba Mensal) === */
+.focus-analytics-card {
+    border-color: rgba(52, 211, 153, 0.2);
+}
+
+.focus-period-nav {
+    display: flex;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+    margin-bottom: 16px;
+    border: 1px solid var(--box-border);
+}
+
+.period-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 8px 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.period-btn.active {
+    background: var(--card-bg);
+    color: var(--accent-green);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.focus-chart-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 16px;
+    padding: 0 4px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.focus-chart-summary strong {
+    font-size: 1.15rem;
+    color: var(--text-primary);
+}
+
+.bar-chart-container {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 145px;
+    padding: 16px 6px 6px;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.chart-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+    gap: 6px;
+    min-width: 0;
+}
+
+.chart-bar-wrap {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.chart-bar {
+    width: 100%;
+    max-width: 24px;
+    background: var(--habit-color, var(--accent-green));
+    border-radius: 6px 6px 2px 2px;
+    min-height: 4px;
+    transition: height 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.chart-bar.empty {
+    background: rgba(255, 255, 255, 0.05);
+    min-height: 4px;
+}
+
+.chart-col-val {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.chart-col-label {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.chart-column.is-today .chart-col-label {
+    color: var(--accent-green);
+    font-weight: 700;
+}
+
+.chart-column.is-today .chart-bar {
+    box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+}
+
+.session-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 12px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: 0.88rem;
+}
+
+.session-item-time {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.session-item-duration {
+    font-weight: 600;
+    color: var(--accent-green);
+}
+
+.focus-habit-option-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #18181c;
+    border: 1px solid var(--box-border);
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text-primary);
+}
+
+.focus-habit-option-item:hover, .focus-habit-option-item.selected {
+    border-color: var(--accent-green);
+    background: rgba(52, 211, 153, 0.1);
+}
+
+/* Light mode overrides for new elements */
+body.light-mode .ruler-tick-bar {
+    background-color: rgba(0, 0, 0, 0.22);
+}
+
+body.light-mode .ruler-tick-item.medium .ruler-tick-bar {
+    background-color: rgba(0, 0, 0, 0.45);
+}
+
+body.light-mode .ruler-tick-item.large .ruler-tick-bar {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+body.light-mode .ruler-tick-item.active .ruler-tick-bar {
+    background-color: var(--accent-green);
+}
+
+body.light-mode .preset-btn {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+body.light-mode .focus-habit-tag {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+body.light-mode .focus-period-nav {
+    background: #e4e4e7;
+}
+
+body.light-mode .period-btn.active {
+    background: #ffffff;
+    color: var(--text-primary);
+}
+
+body.light-mode .bar-chart-container {
+    background: #f4f4f5;
+    border-color: rgba(0, 0, 0, 0.05);
+}
+
+body.light-mode .chart-bar.empty {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+body.light-mode .session-item {
+    background: #f4f4f5;
+    border-color: rgba(0, 0, 0, 0.06);
+}
+
+body.light-mode .focus-habit-option-item {
+    background: #f4f4f5;
 }
