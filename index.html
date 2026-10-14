@@ -234,16 +234,17 @@
                                     <span class="custom-time-title">
                                         <i class="fa-solid fa-clock"></i> Horário do Alarme
                                     </span>
-                                    <span class="custom-time-badge" id="custom-time-period-badge">Manhã</span>
                                 </div>
 
                                 <div class="custom-time-selector-row">
                                     <!-- Coluna Horas (Cadeado de Senha Numérica) -->
                                     <div class="time-tumbler-column" id="hour-tumbler" title="Role ou toque para alterar a hora">
                                         <div class="time-tumbler-wheel" id="hour-wheel">
-                                            <div class="time-tumbler-digit prev" id="hour-prev" role="button" aria-label="Hora anterior">08</div>
-                                            <div class="time-tumbler-digit current" id="hour-display" aria-label="Hora selecionada">09</div>
-                                            <div class="time-tumbler-digit next" id="hour-next" role="button" aria-label="Próxima hora">10</div>
+                                            <div class="time-tumbler-wheel-track" id="hour-wheel-track">
+                                                <div class="time-tumbler-digit prev" id="hour-prev" role="button" aria-label="Hora anterior">08</div>
+                                                <div class="time-tumbler-digit current" id="hour-display" aria-label="Hora selecionada">09</div>
+                                                <div class="time-tumbler-digit next" id="hour-next" role="button" aria-label="Próxima hora">10</div>
+                                            </div>
                                         </div>
                                         <span class="time-digit-label">HORA</span>
                                     </div>
@@ -253,9 +254,11 @@
                                     <!-- Coluna Minutos (Cadeado de Senha Numérica) -->
                                     <div class="time-tumbler-column" id="minute-tumbler" title="Role ou toque para alterar os minutos">
                                         <div class="time-tumbler-wheel" id="minute-wheel">
-                                            <div class="time-tumbler-digit prev" id="minute-prev" role="button" aria-label="Minuto anterior">59</div>
-                                            <div class="time-tumbler-digit current" id="minute-display" aria-label="Minuto selecionado">00</div>
-                                            <div class="time-tumbler-digit next" id="minute-next" role="button" aria-label="Próximo minuto">01</div>
+                                            <div class="time-tumbler-wheel-track" id="minute-wheel-track">
+                                                <div class="time-tumbler-digit prev" id="minute-prev" role="button" aria-label="Minuto anterior">59</div>
+                                                <div class="time-tumbler-digit current" id="minute-display" aria-label="Minuto selecionado">00</div>
+                                                <div class="time-tumbler-digit next" id="minute-next" role="button" aria-label="Próximo minuto">01</div>
+                                            </div>
                                         </div>
                                         <span class="time-digit-label">MINUTO</span>
                                     </div>
@@ -364,29 +367,34 @@
             </div>
 
             <div class="alarm-center-card">
-                <div class="alarm-radar-pulse">
+                <h2 class="alarm-habit-name" id="alarm-habit-name">Nome do Hábito</h2>
+                <p class="alarm-habit-desc" id="alarm-habit-desc">Hora de cumprir sua meta e manter a constância!</p>
+
+                <!-- Arena da bola com interação de arrastar para fora para confirmar -->
+                <div class="alarm-drag-arena" id="alarm-drag-arena">
                     <div class="alarm-pulse-ring ring-1"></div>
                     <div class="alarm-pulse-ring ring-2"></div>
                     <div class="alarm-pulse-ring ring-3"></div>
-                    <div class="alarm-habit-icon-circle" id="alarm-habit-icon-circle">
+
+                    <!-- Anel de destino externo que acende ao puxar a bola para fora -->
+                    <div class="alarm-target-zone" id="alarm-target-zone">
+                        <i class="fa-solid fa-check alarm-target-icon"></i>
+                        <span class="alarm-target-text">Solte fora para concluir</span>
+                    </div>
+
+                    <!-- Bola do hábito interativa (arraste para fora) -->
+                    <div class="alarm-habit-icon-circle" id="alarm-habit-icon-circle" role="button" aria-label="Arraste a bola para fora para confirmar a tarefa" touch-action="none">
                         <i class="fa-solid fa-bell" id="alarm-habit-icon"></i>
                     </div>
                 </div>
-                <h2 class="alarm-habit-name" id="alarm-habit-name">Nome do Hábito</h2>
-                <p class="alarm-habit-desc" id="alarm-habit-desc">Hora de cumprir sua meta e manter a constância!</p>
+
+                <div class="alarm-drag-guide" id="alarm-drag-guide">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Toque na bola e arraste para fora para concluir
+                </div>
             </div>
 
+            <!-- Apenas 2 botões abaixo: Adiar 10 min e Fechar sem marcar -->
             <div class="alarm-actions-wrapper">
-                <button type="button" id="alarm-action-complete" class="alarm-btn-complete">
-                    <div class="alarm-btn-icon-wrap">
-                        <i class="fa-solid fa-check"></i>
-                    </div>
-                    <div class="alarm-btn-label-group">
-                        <span class="alarm-btn-main-text">Marcar como Concluído</span>
-                        <span class="alarm-btn-sub-text">Registrar vitória de hoje</span>
-                    </div>
-                </button>
-
                 <button type="button" id="alarm-action-snooze" class="alarm-btn-snooze">
                     <i class="fa-solid fa-clock-rotate-left"></i>
                     <div class="alarm-btn-label-group">
@@ -444,6 +452,9 @@
             });
         }
     </script>
+    <!-- Gatilho de Vibração/Taptic Engine para iOS Safari -->
+    <input type="checkbox" id="ios-haptic-switch" switch style="position: fixed; opacity: 0; pointer-events: none; left: -9999px;">
+    <label id="ios-haptic-trigger" for="ios-haptic-switch" style="position: fixed; opacity: 0; pointer-events: none; left: -9999px;"></label>
     <script src="app.js"></script>
 </body>
 

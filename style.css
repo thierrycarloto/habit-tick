@@ -1590,23 +1590,36 @@ body.light-mode .focus-habit-option-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.02) 100%);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 18px;
-    padding: 4px 0;
-    box-shadow: inset 0 8px 14px rgba(0, 0, 0, 0.65), inset 0 -8px 14px rgba(0, 0, 0, 0.65);
+    box-shadow: inset 0 10px 16px rgba(0, 0, 0, 0.7), inset 0 -10px 16px rgba(0, 0, 0, 0.7);
     overflow: hidden;
-    touch-action: pan-x;
+    touch-action: none;
     cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .time-tumbler-wheel:active {
     cursor: grabbing;
 }
 
+.time-tumbler-wheel-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    will-change: transform;
+    pointer-events: auto;
+    transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
 .time-tumbler-digit {
     width: 100%;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1618,8 +1631,7 @@ body.light-mode .focus-habit-option-item {
 }
 
 .time-tumbler-digit.prev {
-    height: 38px;
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: 500;
     color: var(--text-secondary);
     opacity: 0.35;
@@ -1633,8 +1645,7 @@ body.light-mode .focus-habit-option-item {
 }
 
 .time-tumbler-digit.current {
-    height: 56px;
-    font-size: 2.3rem;
+    font-size: 2.25rem;
     font-weight: 700;
     color: #ffffff;
     background: rgba(52, 211, 153, 0.12);
@@ -1644,8 +1655,7 @@ body.light-mode .focus-habit-option-item {
 }
 
 .time-tumbler-digit.next {
-    height: 38px;
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: 500;
     color: var(--text-secondary);
     opacity: 0.35;
@@ -1812,24 +1822,42 @@ body.light-mode .time-tumbler-digit.current {
     text-transform: capitalize;
 }
 
-/* Centro com Pulso e Ícone */
+/* Centro com Arena de Arraste da Bola do Hábito */
 .alarm-center-card {
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
     width: 100%;
-    padding: 10px 0;
+    padding: 6px 0;
 }
 
-.alarm-radar-pulse {
+.alarm-habit-name {
+    font-size: 1.65rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 6px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    max-width: 90%;
+    word-break: break-word;
+}
+
+.alarm-habit-desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    max-width: 300px;
+    margin-bottom: 8px;
+}
+
+.alarm-drag-arena {
     position: relative;
-    width: 160px;
-    height: 160px;
+    width: 210px;
+    height: 210px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 20px;
+    margin: 8px 0 12px;
 }
 
 .alarm-pulse-ring {
@@ -1865,102 +1893,112 @@ body.light-mode .time-tumbler-digit.current {
     }
 }
 
+.alarm-target-zone {
+    position: absolute;
+    width: 190px;
+    height: 190px;
+    border-radius: 50%;
+    border: 2px dashed rgba(255, 255, 255, 0.22);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    pointer-events: none;
+    opacity: 0.55;
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.alarm-target-zone.active-target {
+    border-color: var(--alarm-accent, #34d399);
+    background: var(--alarm-accent-bg, rgba(52, 211, 153, 0.15));
+    opacity: 1;
+    transform: scale(1.08);
+    box-shadow: 0 0 32px var(--alarm-accent-glow, rgba(52, 211, 153, 0.45));
+}
+
+.alarm-target-icon {
+    font-size: 1.4rem;
+    color: var(--alarm-accent, #34d399);
+    opacity: 0.7;
+    transition: transform 0.2s;
+}
+
+.alarm-target-zone.active-target .alarm-target-icon {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+.alarm-target-text {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    transition: color 0.2s;
+}
+
+.alarm-target-zone.active-target .alarm-target-text {
+    color: #ffffff;
+}
+
 .alarm-habit-icon-circle {
     position: relative;
-    z-index: 3;
-    width: 88px;
-    height: 88px;
+    z-index: 5;
+    width: 92px;
+    height: 92px;
     border-radius: 50%;
-    background: var(--alarm-accent-bg, rgba(52, 211, 153, 0.2));
+    background: var(--alarm-accent-bg, rgba(52, 211, 153, 0.25));
     border: 3px solid var(--alarm-accent, #34d399);
     color: var(--alarm-accent, #34d399);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2.4rem;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 25px var(--alarm-accent-glow, rgba(52, 211, 153, 0.35));
-    animation: alarmIconFloat 2s ease-in-out infinite alternate;
+    font-size: 2.5rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 25px var(--alarm-accent-glow, rgba(52, 211, 153, 0.4));
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    will-change: transform;
+    transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
 }
 
-@keyframes alarmIconFloat {
-    0% { transform: translateY(0) scale(1); }
-    100% { transform: translateY(-6px) scale(1.04); }
+.alarm-habit-icon-circle.is-dragging {
+    cursor: grabbing;
+    transition: none !important;
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.75), 0 0 36px var(--alarm-accent-glow, rgba(52, 211, 153, 0.65));
 }
 
-.alarm-habit-name {
-    font-size: 1.7rem;
-    font-weight: 700;
-    color: #ffffff;
-    margin-bottom: 8px;
-    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-    max-width: 90%;
-    word-break: break-word;
+.alarm-habit-icon-circle.ready-to-confirm {
+    background: var(--alarm-accent, #34d399);
+    color: #0b0b0d;
+    box-shadow: 0 0 45px var(--alarm-accent, #34d399), 0 12px 30px rgba(0, 0, 0, 0.8);
+    transform: scale(1.15);
 }
 
-.alarm-habit-desc {
-    font-size: 0.95rem;
+.alarm-drag-guide {
+    font-size: 0.85rem;
     color: var(--text-secondary);
-    line-height: 1.45;
-    max-width: 300px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
 }
 
-/* Ações do Alarme (Concluir e Adiar) */
+.alarm-drag-guide.ready {
+    color: var(--alarm-accent, #34d399);
+    font-weight: 700;
+    transform: scale(1.05);
+}
+
+/* Ações do Alarme (Adiar e Fechar) */
 .alarm-actions-wrapper {
     width: 100%;
     display: flex;
     flex-direction: column;
     gap: 12px;
-}
-
-.alarm-btn-complete {
-    width: 100%;
-    padding: 16px 20px;
-    border-radius: 20px;
-    border: none;
-    background: linear-gradient(135deg, var(--alarm-accent, #34d399), #059669);
-    color: #0b0b0d;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    box-shadow: 0 10px 28px rgba(52, 211, 153, 0.4);
-    transition: transform 0.15s ease, filter 0.15s ease;
-    text-align: left;
-}
-
-.alarm-btn-complete:active {
-    transform: scale(0.97);
-    filter: brightness(0.92);
-}
-
-.alarm-btn-icon-wrap {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.18);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.4rem;
-    flex-shrink: 0;
-}
-
-.alarm-btn-label-group {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.alarm-btn-main-text {
-    font-size: 1.1rem;
-    font-weight: 700;
-    line-height: 1.2;
-}
-
-.alarm-btn-sub-text {
-    font-size: 0.78rem;
-    opacity: 0.85;
-    font-weight: 500;
 }
 
 .alarm-btn-snooze {

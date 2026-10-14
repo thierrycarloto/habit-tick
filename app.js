@@ -912,7 +912,6 @@ function updateCustomTimePickerUI() {
     const minNext = document.getElementById('minute-next');
 
     const reminderTimeInput = document.getElementById('habit-reminder-time');
-    const periodBadge = document.getElementById('custom-time-period-badge');
 
     if (hourPrev) hourPrev.textContent = prevHr;
     if (hourDisplay) hourDisplay.textContent = hh;
@@ -923,7 +922,6 @@ function updateCustomTimePickerUI() {
     if (minNext) minNext.textContent = nextMin;
 
     if (reminderTimeInput) reminderTimeInput.value = timeStr;
-    if (periodBadge) periodBadge.textContent = getTimePeriodLabel(customReminderHour);
 }
 
 function setCustomReminderTime(timeStr) {
@@ -942,17 +940,38 @@ function initCustomTimePickerEvents() {
 
     const hourWheel = document.getElementById('hour-wheel');
     const minuteWheel = document.getElementById('minute-wheel');
+    const hourTrack = document.getElementById('hour-wheel-track');
+    const minuteTrack = document.getElementById('minute-wheel-track');
+
+    const animateStep = (track, dir, onCommit) => {
+        if (!track) {
+            onCommit();
+            return;
+        }
+        const targetY = dir > 0 ? -48 : 48;
+        track.style.transition = 'transform 0.18s cubic-bezier(0.25, 1, 0.5, 1)';
+        track.style.transform = `translateY(${targetY}px)`;
+        setTimeout(() => {
+            onCommit();
+            track.style.transition = 'none';
+            track.style.transform = 'translateY(0)';
+        }, 180);
+    };
 
     const stepHour = (dir) => {
-        customReminderHour = (customReminderHour + dir + 24) % 24;
-        triggerHaptic();
-        updateCustomTimePickerUI();
+        animateStep(hourTrack, dir, () => {
+            customReminderHour = (customReminderHour + dir + 24) % 24;
+            triggerHaptic();
+            updateCustomTimePickerUI();
+        });
     };
 
     const stepMinute = (dir) => {
-        customReminderMinute = (customReminderMinute + dir + 60) % 60;
-        triggerHaptic();
-        updateCustomTimePickerUI();
+        animateStep(minuteTrack, dir, () => {
+            customReminderMinute = (customReminderMinute + dir + 60) % 60;
+            triggerHaptic();
+            updateCustomTimePickerUI();
+        });
     };
 
     if (hourPrev) hourPrev.addEventListener('click', () => stepHour(-1));
@@ -960,42 +979,90 @@ function initCustomTimePickerEvents() {
     if (minutePrev) minutePrev.addEventListener('click', () => stepMinute(-1));
     if (minuteNext) minuteNext.addEventListener('click', () => stepMinute(1));
 
-    // Suporte a arrasto vertical (touch swipe) e scroll da roda do mouse no cadeado
-    const attachTumblerSwipe = (el, onStep) => {
-        if (!el) return;
+    // Suporte a arrasto vertical suave e cadenciado com resposta visual em tempo real
+    const attachTumblerDrag = (wheelEl, trackEl, onStep) => {
+        if (!wheelEl || !trackEl) return;
         let startY = 0;
-        let lastY = 0;
-        let accumulated = 0;
-        const THRESHOLD = 22;
+        let isTouching = false;
+        let currentDelta = 0;
+        let isWheelLocked = false;
+        const THRESHOLD = 36; // Distância maior para rolagem controlada e mais devagar
 
-        el.addEventListener('touchstart', (e) => {
+        wheelEl.addEventListener('touchstart', (e) => {
             startY = e.touches[0].clientY;
-            lastY = startY;
-            accumulated = 0;
+            currentDelta = 0;
+            isTouching = true;
+            trackEl.style.transition = 'none';
             triggerHaptic();
         }, { passive: true });
 
-        el.addEventListener('touchmove', (e) => {
+        wheelEl.addEventListener('touchmove', (e) => {
+            if (!isTouching) return;
             const y = e.touches[0].clientY;
-            const diff = lastY - y; // Arrasta para cima -> avança número
-            accumulated += diff;
-            lastY = y;
-            if (Math.abs(accumulated) >= THRESHOLD) {
-                const dir = accumulated > 0 ? 1 : -1;
-                onStep(dir);
-                accumulated = 0;
-            }
+            currentDelta = y - startY; // positivo = puxando para baixo, negativo = puxando para cima
+
+            // Deslocamento elástico visível em tempo real sob o dedo
+            const visualDelta = Math.max(-56, Math.min(56, currentDelta * 0.75));
+            trackEl.style.transform = `translateY(${visualDelta}px)`;
         }, { passive: true });
 
-        el.addEventListener('wheel', (e) => {
+        const endTouch = () => {
+            if (!isTouching) return;
+            isTouching = false;
+
+            if (currentDelta <= -THRESHOLD) {
+                // Deslizou para cima -> avança número (+1)
+                trackEl.style.transition = 'transform 0.18s cubic-bezier(0.25, 1, 0.5, 1)';
+                trackEl.style.transform = 'translateY(-48px)';
+                setTimeout(() => {
+                    onStep(1);
+                    trackEl.style.transition = 'none';
+                    trackEl.style.transform = 'translateY(0)';
+                }, 180);
+            } else if (currentDelta >= THRESHOLD) {
+                // Deslizou para baixo -> volta número (-1)
+                trackEl.style.transition = 'transform 0.18s cubic-bezier(0.25, 1, 0.5, 1)';
+                trackEl.style.transform = 'translateY(48px)';
+                setTimeout(() => {
+                    onStep(-1);
+                    trackEl.style.transition = 'none';
+                    trackEl.style.transform = 'translateY(0)';
+                }, 180);
+            } else {
+                // Retorna suavemente para o centro se não atingiu o limiar
+                trackEl.style.transition = 'transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)';
+                trackEl.style.transform = 'translateY(0)';
+            }
+            currentDelta = 0;
+        };
+
+        wheelEl.addEventListener('touchend', endTouch, { passive: true });
+        wheelEl.addEventListener('touchcancel', endTouch, { passive: true });
+
+        // Scroll com roda do mouse cadenciado e com animação
+        wheelEl.addEventListener('wheel', (e) => {
             e.preventDefault();
+            if (isWheelLocked) return;
+            isWheelLocked = true;
             const dir = e.deltaY > 0 ? 1 : -1;
             onStep(dir);
+            setTimeout(() => {
+                isWheelLocked = false;
+            }, 220);
         }, { passive: false });
     };
 
-    attachTumblerSwipe(hourWheel, stepHour);
-    attachTumblerSwipe(minuteWheel, stepMinute);
+    attachTumblerDrag(hourWheel, hourTrack, (dir) => {
+        customReminderHour = (customReminderHour + dir + 24) % 24;
+        triggerHaptic();
+        updateCustomTimePickerUI();
+    });
+
+    attachTumblerDrag(minuteWheel, minuteTrack, (dir) => {
+        customReminderMinute = (customReminderMinute + dir + 60) % 60;
+        triggerHaptic();
+        updateCustomTimePickerUI();
+    });
 }
 
 // === Gerenciador dos Dias da Semana do Modal ===
@@ -1373,15 +1440,23 @@ function renderFocusHabitOptions() {
     });
 }
 
-// Audio & Haptic Feedback
+// Audio & Haptic Feedback (Triplo suporte: Android nativo, iOS Taptic Engine e Ressonância de Graves)
 let audioCtx = null;
 function triggerHaptic(isMajor = false) {
+    // 1. Android / PWA standard Vibration API
     if ('vibrate' in navigator) {
         try {
-            // Duração calibrada para acionar os motores táteis dos celulares Android com clareza
-            navigator.vibrate(isMajor ? 70 : 50);
+            navigator.vibrate(isMajor ? [120] : [85]);
         } catch (e) {}
     }
+
+    // 2. iOS Safari Taptic Engine Switch Trigger (dispara Taptic nativo no iPhone)
+    try {
+        const iosLabel = document.getElementById('ios-haptic-trigger');
+        if (iosLabel) iosLabel.click();
+    } catch (e) {}
+
+    // 3. Ressonância acústica sub-grave e clique tátil no alto-falante
     try {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1389,16 +1464,31 @@ function triggerHaptic(isMajor = false) {
         if (audioCtx.state === 'suspended') {
             audioCtx.resume();
         }
+        const now = audioCtx.currentTime;
+
+        // Pulso sub-grave de 55Hz (faz o diafragma do falante vibrar fisicamente na mão)
+        const bassOsc = audioCtx.createOscillator();
+        const bassGain = audioCtx.createGain();
+        bassOsc.type = 'sine';
+        bassOsc.frequency.setValueAtTime(55, now);
+        bassGain.gain.setValueAtTime(isMajor ? 0.35 : 0.22, now);
+        bassGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+        bassOsc.connect(bassGain);
+        bassGain.connect(audioCtx.destination);
+        bassOsc.start(now);
+        bassOsc.stop(now + 0.055);
+
+        // Clique de confirmação nítido
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(isMajor ? 640 : 520, audioCtx.currentTime);
-        gain.gain.setValueAtTime(isMajor ? 0.05 : 0.03, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.035);
+        osc.frequency.setValueAtTime(isMajor ? 660 : 540, now);
+        gain.gain.setValueAtTime(isMajor ? 0.06 : 0.035, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.035);
+        osc.start(now);
+        osc.stop(now + 0.035);
     } catch (e) {}
 }
 
@@ -2120,6 +2210,16 @@ function triggerAlarmScreen(habit) {
     if (iconCircle) {
         iconCircle.style.color = habitColor;
         iconCircle.style.borderColor = habitColor;
+        iconCircle.style.transition = 'none';
+        iconCircle.style.transform = 'translate(0px, 0px)';
+        iconCircle.classList.remove('is-dragging', 'ready-to-confirm');
+    }
+    const targetZone = document.getElementById('alarm-target-zone');
+    if (targetZone) targetZone.classList.remove('active-target');
+    const guideEl = document.getElementById('alarm-drag-guide');
+    if (guideEl) {
+        guideEl.classList.remove('ready');
+        guideEl.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square"></i> Toque na bola e arraste para fora para concluir';
     }
     if (glowEl) {
         glowEl.style.background = `radial-gradient(circle, ${habitColor} 0%, transparent 70%)`;
@@ -2136,10 +2236,10 @@ function triggerAlarmScreen(habit) {
 
     if ('vibrate' in navigator) {
         try {
-            navigator.vibrate([350, 150, 350, 150, 500]);
+            navigator.vibrate([400, 150, 400, 150, 600]);
             alarmVibrateLoopInterval = setInterval(() => {
                 try {
-                    navigator.vibrate([350, 150, 350, 150, 500]);
+                    navigator.vibrate([400, 150, 400, 150, 600]);
                 } catch (e) {}
             }, 2600);
         } catch (e) {}
@@ -2167,9 +2267,7 @@ function completeHabitFromAlarm() {
     // Se for modo preview/teste
     if (habit.isPreview) {
         playSuccessMelody();
-        if ('vibrate' in navigator) {
-            try { navigator.vibrate([100, 50, 150, 50, 200]); } catch (e) {}
-        }
+        triggerHaptic(true);
         showAppToast('Teste de alarme concluído com sucesso! 🎉', 'fa-circle-check');
         return;
     }
@@ -2181,9 +2279,7 @@ function completeHabitFromAlarm() {
     renderViews();
 
     playSuccessMelody();
-    if ('vibrate' in navigator) {
-        try { navigator.vibrate([100, 50, 150, 50, 200]); } catch (e) {}
-    }
+    triggerHaptic(true);
     showAppToast(`"${habit.name}" marcado como concluído! 🎉`, 'fa-circle-check');
 }
 
@@ -2212,19 +2308,100 @@ function snoozeHabitFromAlarm() {
 }
 
 function initAlarmScreenEvents() {
-    const completeBtn = document.getElementById('alarm-action-complete');
+    const habitCircle = document.getElementById('alarm-habit-icon-circle');
+    const targetZone = document.getElementById('alarm-target-zone');
+    const guideEl = document.getElementById('alarm-drag-guide');
     const snoozeBtn = document.getElementById('alarm-action-snooze');
     const dismissBtn = document.getElementById('alarm-action-dismiss');
 
-    if (completeBtn) {
-        completeBtn.addEventListener('click', completeHabitFromAlarm);
-    }
     if (snoozeBtn) {
         snoozeBtn.addEventListener('click', snoozeHabitFromAlarm);
     }
     if (dismissBtn) {
         dismissBtn.addEventListener('click', dismissAlarmScreen);
     }
+
+    if (!habitCircle) return;
+
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let currentDist = 0;
+    let hasAlertedReady = false;
+    const CONFIRM_THRESHOLD = 60; // Pixels de distância do centro para confirmar a tarefa
+
+    const onPointerDown = (e) => {
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        currentDist = 0;
+        hasAlertedReady = false;
+        habitCircle.classList.add('is-dragging');
+        habitCircle.style.transition = 'none';
+        try {
+            habitCircle.setPointerCapture(e.pointerId);
+        } catch (err) {}
+        triggerHaptic(true);
+    };
+
+    const onPointerMove = (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        currentDist = Math.hypot(dx, dy);
+
+        // Move a bola acompanhando o dedo
+        habitCircle.style.transform = `translate(${dx}px, ${dy}px) scale(${1 + Math.min(0.18, currentDist / 320)})`;
+
+        const isReady = currentDist >= CONFIRM_THRESHOLD;
+        if (targetZone) targetZone.classList.toggle('active-target', isReady);
+        habitCircle.classList.toggle('ready-to-confirm', isReady);
+        if (guideEl) {
+            guideEl.classList.toggle('ready', isReady);
+            guideEl.innerHTML = isReady 
+                ? '<i class="fa-solid fa-circle-check"></i> Solte para marcar como concluído!'
+                : '<i class="fa-solid fa-arrow-up-right-from-square"></i> Arraste a bola para fora para concluir';
+        }
+
+        if (isReady && !hasAlertedReady) {
+            hasAlertedReady = true;
+            triggerHaptic(true);
+        } else if (!isReady && hasAlertedReady) {
+            hasAlertedReady = false;
+        }
+    };
+
+    const onPointerUp = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        try {
+            habitCircle.releasePointerCapture(e.pointerId);
+        } catch (err) {}
+
+        habitCircle.classList.remove('is-dragging');
+
+        if (currentDist >= CONFIRM_THRESHOLD) {
+            // Arrastou para fora com sucesso: conclui o hábito!
+            completeHabitFromAlarm();
+        } else {
+            // Soltou antes de atingir o limiar: retorna com elasticidade suave ao centro
+            habitCircle.style.transition = 'transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            habitCircle.style.transform = 'translate(0px, 0px)';
+            if (targetZone) targetZone.classList.remove('active-target');
+            habitCircle.classList.remove('ready-to-confirm');
+            if (guideEl) {
+                guideEl.classList.remove('ready');
+                guideEl.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square"></i> Toque na bola e arraste para fora para concluir';
+            }
+        }
+        currentDist = 0;
+        hasAlertedReady = false;
+    };
+
+    habitCircle.addEventListener('pointerdown', onPointerDown);
+    habitCircle.addEventListener('pointermove', onPointerMove);
+    habitCircle.addEventListener('pointerup', onPointerUp);
+    habitCircle.addEventListener('pointercancel', onPointerUp);
 }
 
 // === Verificador de Alarmes (Notificações e Tela Cheia) ===
