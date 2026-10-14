@@ -380,7 +380,7 @@ function setupHabitDragAndDrop(container) {
         const handle = card.querySelector('.drag-handle');
         if (!handle) return;
 
-        // --- Suporte a Mouse (Desktop Drag & Drop) ---
+        // --- Suporte a Mouse (Desktop Drag & Drop com FLIP) ---
         card.setAttribute('draggable', 'false');
 
         handle.addEventListener('mousedown', () => {
@@ -409,21 +409,24 @@ function setupHabitDragAndDrop(container) {
             if (draggingCard && draggingCard !== card) {
                 const rect = card.getBoundingClientRect();
                 const midY = rect.top + rect.height / 2;
-                if (e.clientY < midY) {
-                    container.insertBefore(draggingCard, card);
-                } else {
-                    container.insertBefore(draggingCard, card.nextSibling);
+                const targetBefore = (e.clientY < midY) ? card : card.nextSibling;
+                if (draggingCard.nextSibling !== targetBefore && draggingCard !== targetBefore) {
+                    animateFLIPReorder(container, () => {
+                        container.insertBefore(draggingCard, targetBefore);
+                    });
+                    triggerHaptic(false);
                 }
             }
         });
 
-        // --- Suporte a Touch no Celular (Mobile Pointer / Touch Drag) ---
+        // --- Suporte a Touch no Celular com Animação FLIP Suave e Estável ---
         handle.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1) return;
             isDraggingHabit = true;
-            const touchStartY = e.touches[0].clientY;
+            let touchStartY = e.touches[0].clientY;
             
             card.classList.add('is-dragging');
+            card.style.transition = 'none';
             triggerHaptic(true);
 
             const onTouchMove = (moveEvent) => {
@@ -434,21 +437,27 @@ function setupHabitDragAndDrop(container) {
                 const currentY = touch.clientY;
                 const deltaY = currentY - touchStartY;
 
-                card.style.transform = `translateY(${deltaY}px) scale(1.02)`;
+                card.style.transform = `translateY(${deltaY}px) scale(1.025)`;
 
-                // Reordenar no DOM quando sobrepor outro card
+                // Reordenar suavemente com animação FLIP quando sobrepor outro card
                 const otherCards = Array.from(container.querySelectorAll('.habit-card:not(.is-dragging)'));
                 for (const other of otherCards) {
                     const rect = other.getBoundingClientRect();
                     if (currentY >= rect.top && currentY <= rect.bottom) {
                         const midY = rect.top + rect.height / 2;
-                        if (currentY < midY) {
-                            container.insertBefore(card, other);
-                        } else {
-                            container.insertBefore(card, other.nextSibling);
+                        const targetBefore = (currentY < midY) ? other : other.nextSibling;
+                        if (card.nextSibling !== targetBefore && card !== targetBefore) {
+                            const oldVisualTop = card.getBoundingClientRect().top;
+                            animateFLIPReorder(container, () => {
+                                container.insertBefore(card, targetBefore);
+                            });
+                            const newVisualTop = card.getBoundingClientRect().top;
+                            // Compensa o touchStartY para que o card sob o dedo não sofra nenhum salto visual
+                            touchStartY += (newVisualTop - oldVisualTop);
+                            card.style.transform = `translateY(${currentY - touchStartY}px) scale(1.025)`;
+                            triggerHaptic(false);
+                            break;
                         }
-                        triggerHaptic(false);
-                        break;
                     }
                 }
             };
@@ -458,10 +467,14 @@ function setupHabitDragAndDrop(container) {
                 window.removeEventListener('touchend', onTouchEnd);
                 window.removeEventListener('touchcancel', onTouchEnd);
 
-                card.classList.remove('is-dragging');
+                card.style.transition = 'transform 0.25s cubic-bezier(0.25, 1, 0.5, 1)';
                 card.style.transform = '';
-                isDraggingHabit = false;
+                setTimeout(() => {
+                    card.classList.remove('is-dragging');
+                    card.style.transition = '';
+                }, 250);
 
+                isDraggingHabit = false;
                 updateHabitsOrderFromDOM(container);
                 triggerHaptic(true);
             };
@@ -470,6 +483,33 @@ function setupHabitDragAndDrop(container) {
             window.addEventListener('touchend', onTouchEnd, { passive: true });
             window.addEventListener('touchcancel', onTouchEnd, { passive: true });
         }, { passive: true });
+    });
+}
+
+// Animação FLIP para que a troca de posição dos outros cards seja fluida e deslizante
+function animateFLIPReorder(container, domMutationFn) {
+    if (!container) return;
+    const siblings = Array.from(container.querySelectorAll('.habit-card:not(.is-dragging)'));
+    const firstPositions = new Map();
+    siblings.forEach(el => {
+        firstPositions.set(el, el.getBoundingClientRect().top);
+    });
+
+    domMutationFn();
+
+    siblings.forEach(el => {
+        const first = firstPositions.get(el);
+        const last = el.getBoundingClientRect().top;
+        const delta = first - last;
+        if (delta !== 0) {
+            el.style.transition = 'none';
+            el.style.transform = `translateY(${delta}px)`;
+            requestAnimationFrame(() => {
+                el.offsetHeight; // Força reflow
+                el.style.transition = 'transform 0.28s cubic-bezier(0.25, 1, 0.5, 1)';
+                el.style.transform = '';
+            });
+        }
     });
 }
 
@@ -948,14 +988,14 @@ function initCustomTimePickerEvents() {
             onCommit();
             return;
         }
-        const targetY = dir > 0 ? -48 : 48;
-        track.style.transition = 'transform 0.18s cubic-bezier(0.25, 1, 0.5, 1)';
+        const targetY = dir > 0 ? -44 : 44;
+        track.style.transition = 'transform 0.16s cubic-bezier(0.25, 1, 0.5, 1)';
         track.style.transform = `translateY(${targetY}px)`;
         setTimeout(() => {
             onCommit();
             track.style.transition = 'none';
             track.style.transform = 'translateY(0)';
-        }, 180);
+        }, 160);
     };
 
     const stepHour = (dir) => {
@@ -979,76 +1019,79 @@ function initCustomTimePickerEvents() {
     if (minutePrev) minutePrev.addEventListener('click', () => stepMinute(-1));
     if (minuteNext) minuteNext.addEventListener('click', () => stepMinute(1));
 
-    // Suporte a arrasto vertical suave e cadenciado com resposta visual em tempo real
+    // Suporte a arrasto vertical contínuo, suave e fluido com barra verde FIXA no centro
     const attachTumblerDrag = (wheelEl, trackEl, onStep) => {
         if (!wheelEl || !trackEl) return;
         let startY = 0;
-        let isTouching = false;
-        let currentDelta = 0;
+        let isDragging = false;
         let isWheelLocked = false;
-        const THRESHOLD = 36; // Distância maior para rolagem controlada e mais devagar
+        const STEP_HEIGHT = 44; // Altura para troca suave de cada número
 
-        wheelEl.addEventListener('touchstart', (e) => {
-            startY = e.touches[0].clientY;
-            currentDelta = 0;
-            isTouching = true;
+        const onPointerDown = (e) => {
+            isDragging = true;
+            startY = e.clientY;
             trackEl.style.transition = 'none';
+            try {
+                wheelEl.setPointerCapture(e.pointerId);
+            } catch (err) {}
             triggerHaptic();
-        }, { passive: true });
-
-        wheelEl.addEventListener('touchmove', (e) => {
-            if (!isTouching) return;
-            const y = e.touches[0].clientY;
-            currentDelta = y - startY; // positivo = puxando para baixo, negativo = puxando para cima
-
-            // Deslocamento elástico visível em tempo real sob o dedo
-            const visualDelta = Math.max(-56, Math.min(56, currentDelta * 0.75));
-            trackEl.style.transform = `translateY(${visualDelta}px)`;
-        }, { passive: true });
-
-        const endTouch = () => {
-            if (!isTouching) return;
-            isTouching = false;
-
-            if (currentDelta <= -THRESHOLD) {
-                // Deslizou para cima -> avança número (+1)
-                trackEl.style.transition = 'transform 0.18s cubic-bezier(0.25, 1, 0.5, 1)';
-                trackEl.style.transform = 'translateY(-48px)';
-                setTimeout(() => {
-                    onStep(1);
-                    trackEl.style.transition = 'none';
-                    trackEl.style.transform = 'translateY(0)';
-                }, 180);
-            } else if (currentDelta >= THRESHOLD) {
-                // Deslizou para baixo -> volta número (-1)
-                trackEl.style.transition = 'transform 0.18s cubic-bezier(0.25, 1, 0.5, 1)';
-                trackEl.style.transform = 'translateY(48px)';
-                setTimeout(() => {
-                    onStep(-1);
-                    trackEl.style.transition = 'none';
-                    trackEl.style.transform = 'translateY(0)';
-                }, 180);
-            } else {
-                // Retorna suavemente para o centro se não atingiu o limiar
-                trackEl.style.transition = 'transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)';
-                trackEl.style.transform = 'translateY(0)';
-            }
-            currentDelta = 0;
         };
 
-        wheelEl.addEventListener('touchend', endTouch, { passive: true });
-        wheelEl.addEventListener('touchcancel', endTouch, { passive: true });
+        const onPointerMove = (e) => {
+            if (!isDragging) return;
+            const currentY = e.clientY;
+            let deltaY = currentY - startY;
 
-        // Scroll com roda do mouse cadenciado e com animação
+            // Se arrastou para cima o suficiente (próximo número)
+            if (deltaY <= -STEP_HEIGHT) {
+                onStep(1);
+                startY -= STEP_HEIGHT;
+                deltaY = currentY - startY;
+                triggerHaptic();
+            } 
+            // Se arrastou para baixo o suficiente (número anterior)
+            else if (deltaY >= STEP_HEIGHT) {
+                onStep(-1);
+                startY += STEP_HEIGHT;
+                deltaY = currentY - startY;
+                triggerHaptic();
+            }
+
+            // Acompanha o dedo de forma fluida e suave sob a barra verde fixa
+            trackEl.style.transform = `translateY(${deltaY * 0.75}px)`;
+        };
+
+        const onPointerUp = (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            try {
+                wheelEl.releasePointerCapture(e.pointerId);
+            } catch (err) {}
+
+            // Retorna suavemente para alinhar perfeitamente com a barra verde central fixa
+            trackEl.style.transition = 'transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)';
+            trackEl.style.transform = 'translateY(0)';
+        };
+
+        wheelEl.addEventListener('pointerdown', onPointerDown);
+        wheelEl.addEventListener('pointermove', onPointerMove);
+        wheelEl.addEventListener('pointerup', onPointerUp);
+        wheelEl.addEventListener('pointercancel', onPointerUp);
+
+        // Scroll com roda do mouse cadenciado e com animação fluida
         wheelEl.addEventListener('wheel', (e) => {
             e.preventDefault();
             if (isWheelLocked) return;
             isWheelLocked = true;
             const dir = e.deltaY > 0 ? 1 : -1;
-            onStep(dir);
+            trackEl.style.transition = 'transform 0.16s cubic-bezier(0.25, 1, 0.5, 1)';
+            trackEl.style.transform = dir > 0 ? 'translateY(-44px)' : 'translateY(44px)';
             setTimeout(() => {
+                onStep(dir);
+                trackEl.style.transition = 'none';
+                trackEl.style.transform = 'translateY(0)';
                 isWheelLocked = false;
-            }, 220);
+            }, 160);
         }, { passive: false });
     };
 
@@ -2162,9 +2205,21 @@ function updateAlarmLiveClock() {
     const mm = String(now.getMinutes()).padStart(2, '0');
     clockEl.textContent = `${hh}:${mm}`;
 
-    const dateOptions = { weekday: 'long', day: 'numeric', month: 'long' };
-    const dateStr = now.toLocaleDateString('pt-BR', dateOptions);
-    dateEl.textContent = dateStr;
+    // Estilo idêntico à imagem de referência: "qua., outubro 14"
+    const weekdays = ['dom.', 'seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.'];
+    const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    const wd = weekdays[now.getDay()];
+    const mo = months[now.getMonth()];
+    dateEl.textContent = `${wd}, ${mo} ${now.getDate()}`;
+}
+
+let alarmSnoozeMinutes = 10;
+
+function updateSnoozeDurationUI() {
+    const snoozeText = document.getElementById('alarm-snooze-text');
+    if (snoozeText) {
+        snoozeText.textContent = `Adiar ${alarmSnoozeMinutes} minutos`;
+    }
 }
 
 function stopAlarmSoundAndVibration() {
@@ -2224,6 +2279,9 @@ function triggerAlarmScreen(habit) {
     if (glowEl) {
         glowEl.style.background = `radial-gradient(circle, ${habitColor} 0%, transparent 70%)`;
     }
+
+    alarmSnoozeMinutes = 10;
+    updateSnoozeDurationUI();
 
     updateAlarmLiveClock();
     if (alarmClockInterval) clearInterval(alarmClockInterval);
@@ -2293,18 +2351,18 @@ function snoozeHabitFromAlarm() {
     dismissAlarmScreen();
 
     if (habit.isPreview) {
-        showAppToast('Lembrete adiado por 10 minutos (modo de teste) ⏰', 'fa-clock-rotate-left');
+        showAppToast(`Lembrete adiado por ${alarmSnoozeMinutes} minutos (modo de teste) ⏰`, 'fa-clock-rotate-left');
         return;
     }
 
-    // Adiar por 10 minutos a partir de agora
-    const snoozeTime = new Date(Date.now() + 10 * 60 * 1000);
+    // Adiar pelos minutos selecionados a partir de agora
+    const snoozeTime = new Date(Date.now() + alarmSnoozeMinutes * 60 * 1000);
     habit.snoozedUntil = snoozeTime.getTime();
     saveState();
 
     const hh = String(snoozeTime.getHours()).padStart(2, '0');
     const mm = String(snoozeTime.getMinutes()).padStart(2, '0');
-    showAppToast(`Lembrete adiado para as ${hh}:${mm} (10 min) ⏰`, 'fa-clock-rotate-left');
+    showAppToast(`Lembrete adiado para as ${hh}:${mm} (${alarmSnoozeMinutes} min) ⏰`, 'fa-clock-rotate-left');
 }
 
 function initAlarmScreenEvents() {
@@ -2312,7 +2370,31 @@ function initAlarmScreenEvents() {
     const targetZone = document.getElementById('alarm-target-zone');
     const guideEl = document.getElementById('alarm-drag-guide');
     const snoozeBtn = document.getElementById('alarm-action-snooze');
+    const snoozeMinus = document.getElementById('alarm-snooze-minus');
+    const snoozePlus = document.getElementById('alarm-snooze-plus');
     const dismissBtn = document.getElementById('alarm-action-dismiss');
+
+    if (snoozeMinus) {
+        snoozeMinus.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (alarmSnoozeMinutes > 5) {
+                alarmSnoozeMinutes -= 5;
+                updateSnoozeDurationUI();
+                triggerHaptic();
+            }
+        });
+    }
+
+    if (snoozePlus) {
+        snoozePlus.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (alarmSnoozeMinutes < 60) {
+                alarmSnoozeMinutes += 5;
+                updateSnoozeDurationUI();
+                triggerHaptic();
+            }
+        });
+    }
 
     if (snoozeBtn) {
         snoozeBtn.addEventListener('click', snoozeHabitFromAlarm);

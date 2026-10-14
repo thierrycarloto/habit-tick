@@ -239,28 +239,32 @@
                                 <div class="custom-time-selector-row">
                                     <!-- Coluna Horas (Cadeado de Senha Numérica) -->
                                     <div class="time-tumbler-column" id="hour-tumbler" title="Role ou toque para alterar a hora">
+                                        <span class="time-digit-label">HORAS</span>
                                         <div class="time-tumbler-wheel" id="hour-wheel">
+                                            <!-- Barra verde FIXA no centro -->
+                                            <div class="time-tumbler-selection-lens"></div>
                                             <div class="time-tumbler-wheel-track" id="hour-wheel-track">
                                                 <div class="time-tumbler-digit prev" id="hour-prev" role="button" aria-label="Hora anterior">08</div>
                                                 <div class="time-tumbler-digit current" id="hour-display" aria-label="Hora selecionada">09</div>
                                                 <div class="time-tumbler-digit next" id="hour-next" role="button" aria-label="Próxima hora">10</div>
                                             </div>
                                         </div>
-                                        <span class="time-digit-label">HORA</span>
                                     </div>
 
                                     <div class="time-colon-separator">:</div>
 
                                     <!-- Coluna Minutos (Cadeado de Senha Numérica) -->
                                     <div class="time-tumbler-column" id="minute-tumbler" title="Role ou toque para alterar os minutos">
+                                        <span class="time-digit-label">MINUTOS</span>
                                         <div class="time-tumbler-wheel" id="minute-wheel">
+                                            <!-- Barra verde FIXA no centro -->
+                                            <div class="time-tumbler-selection-lens"></div>
                                             <div class="time-tumbler-wheel-track" id="minute-wheel-track">
                                                 <div class="time-tumbler-digit prev" id="minute-prev" role="button" aria-label="Minuto anterior">59</div>
                                                 <div class="time-tumbler-digit current" id="minute-display" aria-label="Minuto selecionado">00</div>
                                                 <div class="time-tumbler-digit next" id="minute-next" role="button" aria-label="Próximo minuto">01</div>
                                             </div>
                                         </div>
-                                        <span class="time-digit-label">MINUTO</span>
                                     </div>
                                 </div>
                             </div>
@@ -393,15 +397,19 @@
                 </div>
             </div>
 
-            <!-- Apenas 2 botões abaixo: Adiar 10 min e Fechar sem marcar -->
+            <!-- Ações do Alarme: Pílula de Adiar (com ajuste de minutos) e Fechar sem marcar -->
             <div class="alarm-actions-wrapper">
-                <button type="button" id="alarm-action-snooze" class="alarm-btn-snooze">
-                    <i class="fa-solid fa-clock-rotate-left"></i>
-                    <div class="alarm-btn-label-group">
-                        <span class="alarm-btn-main-text">Adiar 10 min</span>
-                        <span class="alarm-btn-sub-text">Tocar novamente em 10 minutos</span>
-                    </div>
-                </button>
+                <div class="alarm-snooze-pill-container" id="alarm-snooze-pill-container">
+                    <button type="button" class="snooze-adj-btn" id="alarm-snooze-minus" aria-label="Diminuir tempo de adiar">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                    <button type="button" id="alarm-action-snooze" class="alarm-btn-snooze-main">
+                        <span id="alarm-snooze-text">Adiar 10 minutos</span>
+                    </button>
+                    <button type="button" class="snooze-adj-btn" id="alarm-snooze-plus" aria-label="Aumentar tempo de adiar">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
 
                 <button type="button" id="alarm-action-dismiss" class="alarm-btn-dismiss">
                     Fechar sem marcar

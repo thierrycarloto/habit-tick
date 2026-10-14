@@ -1585,7 +1585,7 @@ body.light-mode .focus-habit-option-item {
 
 .time-tumbler-wheel {
     position: relative;
-    width: 82px;
+    width: 84px;
     height: 152px;
     display: flex;
     flex-direction: column;
@@ -1600,13 +1600,34 @@ body.light-mode .focus-habit-option-item {
     cursor: grab;
     user-select: none;
     -webkit-user-select: none;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
 }
 
 .time-tumbler-wheel:active {
     cursor: grabbing;
 }
 
+/* Lente / Barra verde 100% FIXA no centro da roda */
+.time-tumbler-selection-lens {
+    position: absolute;
+    top: 50%;
+    left: 4px;
+    right: 4px;
+    height: 48px;
+    transform: translateY(-50%);
+    background: rgba(52, 211, 153, 0.14);
+    border-top: 1.5px solid rgba(52, 211, 153, 0.45);
+    border-bottom: 1.5px solid rgba(52, 211, 153, 0.45);
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(52, 211, 153, 0.18), inset 0 0 8px rgba(52, 211, 153, 0.08);
+    pointer-events: none;
+    z-index: 2;
+}
+
 .time-tumbler-wheel-track {
+    position: relative;
+    z-index: 3;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1626,16 +1647,16 @@ body.light-mode .focus-habit-option-item {
     font-family: 'Inter', monospace, sans-serif;
     font-variant-numeric: tabular-nums;
     letter-spacing: 1px;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
     cursor: pointer;
 }
 
 .time-tumbler-digit.prev {
-    font-size: 1.15rem;
+    font-size: 1.2rem;
     font-weight: 500;
     color: var(--text-secondary);
     opacity: 0.35;
-    transform: perspective(80px) rotateX(16deg) scale(0.9);
+    transform: perspective(80px) rotateX(14deg) scale(0.9);
 }
 
 .time-tumbler-digit.prev:hover,
@@ -1645,21 +1666,20 @@ body.light-mode .focus-habit-option-item {
 }
 
 .time-tumbler-digit.current {
-    font-size: 2.25rem;
+    font-size: 2.3rem;
     font-weight: 700;
     color: #ffffff;
-    background: rgba(52, 211, 153, 0.12);
-    border-top: 1px solid rgba(52, 211, 153, 0.35);
-    border-bottom: 1px solid rgba(52, 211, 153, 0.35);
-    box-shadow: 0 0 16px rgba(52, 211, 153, 0.15);
+    background: transparent;
+    border: none;
+    box-shadow: none;
 }
 
 .time-tumbler-digit.next {
-    font-size: 1.15rem;
+    font-size: 1.2rem;
     font-weight: 500;
     color: var(--text-secondary);
     opacity: 0.35;
-    transform: perspective(80px) rotateX(-16deg) scale(0.9);
+    transform: perspective(80px) rotateX(-14deg) scale(0.9);
 }
 
 .time-tumbler-digit.next:hover,
@@ -1670,16 +1690,17 @@ body.light-mode .focus-habit-option-item {
 
 .time-digit-label {
     font-size: 0.68rem;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-secondary);
-    letter-spacing: 0.8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
 }
 
 .time-colon-separator {
     font-size: 2.2rem;
     font-weight: 700;
     color: var(--text-secondary);
-    margin-bottom: 22px;
+    margin-top: 24px;
     animation: colonPulse 2s infinite ease-in-out;
 }
 
@@ -1694,10 +1715,14 @@ body.light-mode .time-tumbler-wheel {
     box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.08), inset 0 -6px 10px rgba(0, 0, 0, 0.08);
 }
 
-body.light-mode .time-tumbler-digit.current {
-    color: #18181b;
+body.light-mode .time-tumbler-selection-lens {
     background: rgba(52, 211, 153, 0.18);
     border-color: var(--accent-green);
+    box-shadow: 0 0 16px rgba(52, 211, 153, 0.25);
+}
+
+body.light-mode .time-tumbler-digit.current {
+    color: #18181b;
 }
 
 /* ==========================================================================
@@ -1993,57 +2018,78 @@ body.light-mode .time-tumbler-digit.current {
     transform: scale(1.05);
 }
 
-/* Ações do Alarme (Adiar e Fechar) */
+/* Ações do Alarme: Pílula de Adiar (com ajuste de minutos) e Fechar sem marcar */
 .alarm-actions-wrapper {
     width: 100%;
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 12px;
 }
 
-.alarm-btn-snooze {
+/* Pílula de Adiar no estilo exato da imagem de referência 2 */
+.alarm-snooze-pill-container {
     width: 100%;
-    padding: 14px 20px;
-    border-radius: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.06);
-    color: #ffffff;
-    cursor: pointer;
+    max-width: 320px;
+    height: 58px;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #5b55e3, #4f46e5);
     display: flex;
     align-items: center;
-    gap: 16px;
-    transition: all 0.15s ease;
-    text-align: left;
+    justify-content: space-between;
+    padding: 6px 8px;
+    box-shadow: 0 10px 28px rgba(79, 70, 229, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.alarm-btn-snooze i {
-    font-size: 1.3rem;
-    color: var(--accent-green);
+.alarm-snooze-pill-container:active {
+    transform: scale(0.98);
+}
+
+.snooze-adj-btn {
     width: 44px;
     height: 44px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.22);
+    border: none;
+    color: #ffffff;
+    font-size: 1.15rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.05);
+    cursor: pointer;
     flex-shrink: 0;
+    transition: background 0.15s, transform 0.1s;
 }
 
-.alarm-btn-snooze:active {
-    transform: scale(0.97);
-    background: rgba(255, 255, 255, 0.1);
+.snooze-adj-btn:active {
+    background: rgba(0, 0, 0, 0.4);
+    transform: scale(0.92);
+}
+
+.alarm-btn-snooze-main {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    padding: 0 12px;
+    white-space: nowrap;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .alarm-btn-dismiss {
     background: transparent;
     border: none;
     color: var(--text-secondary);
-    font-size: 0.88rem;
+    font-size: 0.95rem;
     font-weight: 500;
-    padding: 8px 12px;
+    padding: 10px 16px;
     cursor: pointer;
     text-align: center;
-    width: 100%;
     transition: color 0.15s ease;
 }
 
