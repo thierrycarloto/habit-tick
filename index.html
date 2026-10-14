@@ -147,15 +147,67 @@
                         </div>
 
                         <div class="form-group" style="margin-top: 24px;">
-                            <label>Como você acompanha?</label>
-                            <div class="days-selector">
-                                <label><input type="checkbox" name="active-days" value="1" checked> Seg</label>
-                                <label><input type="checkbox" name="active-days" value="2" checked> Ter</label>
-                                <label><input type="checkbox" name="active-days" value="3" checked> Qua</label>
-                                <label><input type="checkbox" name="active-days" value="4" checked> Qui</label>
-                                <label><input type="checkbox" name="active-days" value="5" checked> Sex</label>
-                                <label><input type="checkbox" name="active-days" value="6" checked> Sáb</label>
-                                <label><input type="checkbox" name="active-days" value="0" checked> Dom</label>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <label style="margin-bottom: 0;">Como você acompanha?</label>
+                                <span class="days-summary-badge" id="days-summary-badge">7 dias / semana</span>
+                            </div>
+
+                            <div class="days-quick-shortcuts">
+                                <button type="button" class="day-shortcut-btn" id="shortcut-all-days">Todos os dias</button>
+                                <button type="button" class="day-shortcut-btn" id="shortcut-weekdays">Dias úteis</button>
+                                <button type="button" class="day-shortcut-btn" id="shortcut-weekend">Fim de semana</button>
+                            </div>
+
+                            <div class="days-selector-grid" id="days-selector-grid">
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="active-days" value="1" checked>
+                                    <div class="day-chip">
+                                        <span class="day-letter">S</span>
+                                        <span class="day-abbr">Seg</span>
+                                    </div>
+                                </label>
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="active-days" value="2" checked>
+                                    <div class="day-chip">
+                                        <span class="day-letter">T</span>
+                                        <span class="day-abbr">Ter</span>
+                                    </div>
+                                </label>
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="active-days" value="3" checked>
+                                    <div class="day-chip">
+                                        <span class="day-letter">Q</span>
+                                        <span class="day-abbr">Qua</span>
+                                    </div>
+                                </label>
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="active-days" value="4" checked>
+                                    <div class="day-chip">
+                                        <span class="day-letter">Q</span>
+                                        <span class="day-abbr">Qui</span>
+                                    </div>
+                                </label>
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="active-days" value="5" checked>
+                                    <div class="day-chip">
+                                        <span class="day-letter">S</span>
+                                        <span class="day-abbr">Sex</span>
+                                    </div>
+                                </label>
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="active-days" value="6" checked>
+                                    <div class="day-chip">
+                                        <span class="day-letter">S</span>
+                                        <span class="day-abbr">Sáb</span>
+                                    </div>
+                                </label>
+                                <label class="day-checkbox-label">
+                                    <input type="checkbox" name="active-days" value="0" checked>
+                                    <div class="day-chip">
+                                        <span class="day-letter">D</span>
+                                        <span class="day-abbr">Dom</span>
+                                    </div>
+                                </label>
                             </div>
                         </div>
 
@@ -175,7 +227,57 @@
                         </div>
 
                         <div class="form-group" id="reminder-time-group" style="display: none;">
-                            <input type="time" id="habit-reminder-time" value="09:00" class="time-input">
+                            <input type="hidden" id="habit-reminder-time" value="09:00">
+                            
+                            <div class="custom-time-picker-card">
+                                <div class="custom-time-header">
+                                    <span class="custom-time-title">
+                                        <i class="fa-solid fa-clock"></i> Horário do Alarme
+                                    </span>
+                                    <span class="custom-time-badge" id="custom-time-period-badge">Manhã</span>
+                                </div>
+
+                                <div class="custom-time-selector-row">
+                                    <!-- Coluna Horas -->
+                                    <div class="time-digit-column">
+                                        <button type="button" class="time-adjust-btn" id="hour-up-btn" aria-label="Aumentar hora">
+                                            <i class="fa-solid fa-chevron-up"></i>
+                                        </button>
+                                        <div class="time-digit-display" id="hour-display">09</div>
+                                        <button type="button" class="time-adjust-btn" id="hour-down-btn" aria-label="Diminuir hora">
+                                            <i class="fa-solid fa-chevron-down"></i>
+                                        </button>
+                                        <span class="time-digit-label">HORA</span>
+                                    </div>
+
+                                    <div class="time-colon-separator">:</div>
+
+                                    <!-- Coluna Minutos -->
+                                    <div class="time-digit-column">
+                                        <button type="button" class="time-adjust-btn" id="minute-up-btn" aria-label="Aumentar minuto">
+                                            <i class="fa-solid fa-chevron-up"></i>
+                                        </button>
+                                        <div class="time-digit-display" id="minute-display">00</div>
+                                        <button type="button" class="time-adjust-btn" id="minute-down-btn" aria-label="Diminuir minuto">
+                                            <i class="fa-solid fa-chevron-down"></i>
+                                        </button>
+                                        <span class="time-digit-label">MINUTO</span>
+                                    </div>
+                                </div>
+
+                                <!-- Atalhos rápidos de rotina -->
+                                <div class="time-quick-presets">
+                                    <button type="button" class="time-preset-pill" data-time="07:00">07:00</button>
+                                    <button type="button" class="time-preset-pill" data-time="09:00">09:00</button>
+                                    <button type="button" class="time-preset-pill" data-time="12:30">12:30</button>
+                                    <button type="button" class="time-preset-pill" data-time="18:00">18:00</button>
+                                    <button type="button" class="time-preset-pill" data-time="21:00">21:00</button>
+                                </div>
+
+                                <button type="button" id="test-alarm-btn" class="test-alarm-btn">
+                                    <i class="fa-solid fa-bell"></i> Testar Alarme em Tela Cheia
+                                </button>
+                            </div>
                         </div>
 
                         <button type="submit" class="primary-btn submit-habit-btn"
@@ -263,6 +365,64 @@
                 <input type="file" id="import-backup-file-input" accept=".json,application/json" style="display: none;">
             </div>
         </div>
+    </div>
+
+    <!-- Fullscreen Alarm Screen Modal -->
+    <div id="full-alarm-modal" class="alarm-fullscreen-overlay hidden">
+        <div class="alarm-backdrop-glow" id="alarm-backdrop-glow"></div>
+        <div class="alarm-content-container">
+            <div class="alarm-top-header">
+                <div class="alarm-pill-badge">
+                    <i class="fa-solid fa-bell"></i>
+                    <span>LEMBRETE DE HÁBITO</span>
+                </div>
+                <div class="alarm-clock-display" id="alarm-clock-display">09:00</div>
+                <div class="alarm-date-display" id="alarm-date-display">Hoje</div>
+            </div>
+
+            <div class="alarm-center-card">
+                <div class="alarm-radar-pulse">
+                    <div class="alarm-pulse-ring ring-1"></div>
+                    <div class="alarm-pulse-ring ring-2"></div>
+                    <div class="alarm-pulse-ring ring-3"></div>
+                    <div class="alarm-habit-icon-circle" id="alarm-habit-icon-circle">
+                        <i class="fa-solid fa-bell" id="alarm-habit-icon"></i>
+                    </div>
+                </div>
+                <h2 class="alarm-habit-name" id="alarm-habit-name">Nome do Hábito</h2>
+                <p class="alarm-habit-desc" id="alarm-habit-desc">Hora de cumprir sua meta e manter a constância!</p>
+            </div>
+
+            <div class="alarm-actions-wrapper">
+                <button type="button" id="alarm-action-complete" class="alarm-btn-complete">
+                    <div class="alarm-btn-icon-wrap">
+                        <i class="fa-solid fa-check"></i>
+                    </div>
+                    <div class="alarm-btn-label-group">
+                        <span class="alarm-btn-main-text">Marcar como Concluído</span>
+                        <span class="alarm-btn-sub-text">Registrar vitória de hoje</span>
+                    </div>
+                </button>
+
+                <button type="button" id="alarm-action-snooze" class="alarm-btn-snooze">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <div class="alarm-btn-label-group">
+                        <span class="alarm-btn-main-text">Adiar 10 min</span>
+                        <span class="alarm-btn-sub-text">Tocar novamente em 10 minutos</span>
+                    </div>
+                </button>
+
+                <button type="button" id="alarm-action-dismiss" class="alarm-btn-dismiss">
+                    Fechar sem marcar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Toast Notification -->
+    <div id="app-toast" class="app-toast hidden">
+        <i class="fa-solid fa-circle-check" id="app-toast-icon"></i>
+        <span id="app-toast-msg">Mensagem</span>
     </div>
 
     <script>

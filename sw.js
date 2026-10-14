@@ -1,4 +1,4 @@
-const CACHE_NAME = 'habit-tick-v8';
+const CACHE_NAME = 'habit-tick-v10';
 const ASSETS = [
     './',
     './index.html',
@@ -55,15 +55,30 @@ self.addEventListener('message', event => {
 
 self.addEventListener('notificationclick', event => {
     event.notification.close();
+    const habitId = event.notification.data ? event.notification.data.habitId : null;
+    const action = event.action;
+
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
             for (const client of clientList) {
                 if (client.url && 'focus' in client) {
-                    return client.focus();
+                    client.focus();
+                    if (habitId) {
+                        client.postMessage({
+                            type: 'NOTIFICATION_ACTION',
+                            action: action,
+                            habitId: habitId
+                        });
+                    }
+                    return;
                 }
             }
+            let targetUrl = './';
+            if (habitId) {
+                targetUrl = `./?alarmHabitId=${encodeURIComponent(habitId)}&action=${encodeURIComponent(action || '')}`;
+            }
             if (clients.openWindow) {
-                return clients.openWindow('./');
+                return clients.openWindow(targetUrl);
             }
         })
     );

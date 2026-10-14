@@ -121,11 +121,13 @@ function updateViewportHeight(animate = false) {
     }
     const activePage = tabPages[currentTabIndex];
     if (activePage) {
-        const h = activePage.offsetHeight;
-        if (h > 0) {
-            tabViewport.style.transition = animate ? 'height 0.3s cubic-bezier(0.25, 1, 0.5, 1)' : 'none';
-            tabViewport.style.height = `${h}px`;
-        }
+        const rect = tabViewport.getBoundingClientRect();
+        // Altura mínima para preencher o restante da tela visível (evita espaço morto sem swipe abaixo de 1 hábito)
+        const minViewportH = Math.max(340, Math.round(window.innerHeight - (rect.top > 0 ? rect.top : 140) - 20));
+        const contentH = activePage.offsetHeight;
+        const targetH = Math.max(contentH, minViewportH);
+        tabViewport.style.transition = animate ? 'height 0.3s cubic-bezier(0.25, 1, 0.5, 1)' : 'none';
+        tabViewport.style.height = `${targetH}px`;
     }
 }
 
@@ -245,6 +247,7 @@ function renderWeeklyView() {
     state.habits.forEach(habit => {
         const card = document.createElement('div');
         card.className = 'habit-card';
+        card.setAttribute('data-id', habit.id);
         card.style.setProperty('--habit-color', habit.color);
 
         let streak = 0;
@@ -311,6 +314,9 @@ function renderWeeklyView() {
 
         card.innerHTML = `
             <div class="habit-header">
+                <div class="drag-handle" data-id="${habit.id}" title="Segure e arraste para reordenar" aria-label="Reordenar hábito">
+                    <i class="fa-solid fa-grip-vertical"></i>
+                </div>
                 <div class="habit-icon-bg" style="background-color: ${habit.color}33;">
                     <i class="fa-solid ${habit.icon}" style="color: ${habit.color};"></i>
                 </div>
@@ -329,6 +335,8 @@ function renderWeeklyView() {
 
         container.appendChild(card);
     });
+
+    setupHabitDragAndDrop(container);
 
     // Lógica de click
     document.querySelectorAll('#weekly-habit-list .day-box:not(.disabled)').forEach(btn => {
@@ -360,6 +368,128 @@ function renderWeeklyView() {
             openModal(habitId);
         });
     });
+}
+
+// === Sistema de Reordenação de Hábitos (Segurar e Arrastar) ===
+let isDraggingHabit = false;
+
+function setupHabitDragAndDrop(container) {
+    if (!container) return;
+    const cards = Array.from(container.querySelectorAll('.habit-card'));
+    if (cards.length <= 1) return;
+
+    cards.forEach(card => {
+        const handle = card.querySelector('.drag-handle');
+        if (!handle) return;
+
+        // --- Suporte a Mouse (Desktop Drag & Drop) ---
+        card.setAttribute('draggable', 'false');
+
+        handle.addEventListener('mousedown', () => {
+            card.setAttribute('draggable', 'true');
+        });
+
+        card.addEventListener('dragstart', (e) => {
+            isDraggingHabit = true;
+            card.classList.add('is-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', card.getAttribute('data-id'));
+            triggerHaptic(true);
+        });
+
+        card.addEventListener('dragend', () => {
+            card.setAttribute('draggable', 'false');
+            card.classList.remove('is-dragging');
+            isDraggingHabit = false;
+            updateHabitsOrderFromDOM(container);
+        });
+
+        card.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const draggingCard = container.querySelector('.habit-card.is-dragging');
+            if (draggingCard && draggingCard !== card) {
+                const rect = card.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                if (e.clientY < midY) {
+                    container.insertBefore(draggingCard, card);
+                } else {
+                    container.insertBefore(draggingCard, card.nextSibling);
+                }
+            }
+        });
+
+        // --- Suporte a Touch no Celular (Mobile Pointer / Touch Drag) ---
+        handle.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            isDraggingHabit = true;
+            const touchStartY = e.touches[0].clientY;
+            
+            card.classList.add('is-dragging');
+            triggerHaptic(true);
+
+            const onTouchMove = (moveEvent) => {
+                if (!isDraggingHabit) return;
+                if (moveEvent.cancelable) moveEvent.preventDefault();
+
+                const touch = moveEvent.touches[0];
+                const currentY = touch.clientY;
+                const deltaY = currentY - touchStartY;
+
+                card.style.transform = `translateY(${deltaY}px) scale(1.02)`;
+
+                // Reordenar no DOM quando sobrepor outro card
+                const otherCards = Array.from(container.querySelectorAll('.habit-card:not(.is-dragging)'));
+                for (const other of otherCards) {
+                    const rect = other.getBoundingClientRect();
+                    if (currentY >= rect.top && currentY <= rect.bottom) {
+                        const midY = rect.top + rect.height / 2;
+                        if (currentY < midY) {
+                            container.insertBefore(card, other);
+                        } else {
+                            container.insertBefore(card, other.nextSibling);
+                        }
+                        triggerHaptic(false);
+                        break;
+                    }
+                }
+            };
+
+            const onTouchEnd = () => {
+                window.removeEventListener('touchmove', onTouchMove);
+                window.removeEventListener('touchend', onTouchEnd);
+                window.removeEventListener('touchcancel', onTouchEnd);
+
+                card.classList.remove('is-dragging');
+                card.style.transform = '';
+                isDraggingHabit = false;
+
+                updateHabitsOrderFromDOM(container);
+                triggerHaptic(true);
+            };
+
+            window.addEventListener('touchmove', onTouchMove, { passive: false });
+            window.addEventListener('touchend', onTouchEnd, { passive: true });
+            window.addEventListener('touchcancel', onTouchEnd, { passive: true });
+        }, { passive: true });
+    });
+}
+
+function updateHabitsOrderFromDOM(container) {
+    if (!container) return;
+    const cardElements = Array.from(container.querySelectorAll('.habit-card'));
+    const newOrderIds = cardElements.map(el => el.getAttribute('data-id')).filter(Boolean);
+
+    const currentIds = state.habits.map(h => h.id);
+    const hasChanged = newOrderIds.some((id, idx) => id !== currentIds[idx]);
+
+    if (hasChanged) {
+        state.habits.sort((a, b) => newOrderIds.indexOf(a.id) - newOrderIds.indexOf(b.id));
+        saveState();
+        showAppToast('Ordem dos hábitos atualizada!', 'fa-arrows-up-down');
+        renderMonthlyView();
+        updateViewportHeight(false);
+    }
 }
 
 let selectedMonthOffset = 0;
@@ -753,6 +883,203 @@ reminderCheckbox.addEventListener('change', async (e) => {
     }
 });
 
+// === Seletor de Horário Customizado (Layout condizente com Habit Tick) ===
+let customReminderHour = 9;
+let customReminderMinute = 0;
+
+function getTimePeriodLabel(hour) {
+    if (hour >= 0 && hour < 6) return 'Madrugada';
+    if (hour >= 6 && hour < 12) return 'Manhã';
+    if (hour >= 12 && hour < 18) return 'Tarde';
+    return 'Noite';
+}
+
+function updateCustomTimePickerUI() {
+    const hh = String(customReminderHour).padStart(2, '0');
+    const mm = String(customReminderMinute).padStart(2, '0');
+    const timeStr = `${hh}:${mm}`;
+
+    const hourDisplay = document.getElementById('hour-display');
+    const minuteDisplay = document.getElementById('minute-display');
+    const reminderTimeInput = document.getElementById('habit-reminder-time');
+    const periodBadge = document.getElementById('custom-time-period-badge');
+
+    if (hourDisplay) hourDisplay.textContent = hh;
+    if (minuteDisplay) minuteDisplay.textContent = mm;
+    if (reminderTimeInput) reminderTimeInput.value = timeStr;
+    if (periodBadge) periodBadge.textContent = getTimePeriodLabel(customReminderHour);
+
+    document.querySelectorAll('.time-preset-pill').forEach(pill => {
+        pill.classList.toggle('active', pill.dataset.time === timeStr);
+    });
+}
+
+function setCustomReminderTime(timeStr) {
+    if (!timeStr || typeof timeStr !== 'string') timeStr = '09:00';
+    const parts = timeStr.split(':').map(Number);
+    customReminderHour = isNaN(parts[0]) ? 9 : Math.max(0, Math.min(23, parts[0]));
+    customReminderMinute = isNaN(parts[1]) ? 0 : Math.max(0, Math.min(59, parts[1]));
+    updateCustomTimePickerUI();
+}
+
+function initCustomTimePickerEvents() {
+    const hourUp = document.getElementById('hour-up-btn');
+    const hourDown = document.getElementById('hour-down-btn');
+    const minuteUp = document.getElementById('minute-up-btn');
+    const minuteDown = document.getElementById('minute-down-btn');
+    const hourDisplay = document.getElementById('hour-display');
+    const minuteDisplay = document.getElementById('minute-display');
+    const testAlarmBtn = document.getElementById('test-alarm-btn');
+
+    if (hourUp) {
+        hourUp.addEventListener('click', () => {
+            customReminderHour = (customReminderHour + 1) % 24;
+            triggerHaptic();
+            updateCustomTimePickerUI();
+        });
+    }
+
+    if (hourDown) {
+        hourDown.addEventListener('click', () => {
+            customReminderHour = (customReminderHour - 1 + 24) % 24;
+            triggerHaptic();
+            updateCustomTimePickerUI();
+        });
+    }
+
+    if (minuteUp) {
+        minuteUp.addEventListener('click', () => {
+            customReminderMinute = (customReminderMinute + 1) % 60;
+            triggerHaptic();
+            updateCustomTimePickerUI();
+        });
+    }
+
+    if (minuteDown) {
+        minuteDown.addEventListener('click', () => {
+            customReminderMinute = (customReminderMinute - 1 + 60) % 60;
+            triggerHaptic();
+            updateCustomTimePickerUI();
+        });
+    }
+
+    if (hourDisplay) {
+        hourDisplay.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 1 : -1;
+            customReminderHour = (customReminderHour + delta + 24) % 24;
+            triggerHaptic();
+            updateCustomTimePickerUI();
+        }, { passive: false });
+    }
+
+    if (minuteDisplay) {
+        minuteDisplay.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 1 : -1;
+            customReminderMinute = (customReminderMinute + delta + 60) % 60;
+            triggerHaptic();
+            updateCustomTimePickerUI();
+        }, { passive: false });
+    }
+
+    document.querySelectorAll('.time-preset-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+            const t = pill.dataset.time;
+            if (t) {
+                setCustomReminderTime(t);
+                triggerHaptic(true);
+            }
+        });
+    });
+
+    if (testAlarmBtn) {
+        testAlarmBtn.addEventListener('click', () => {
+            const habitName = document.getElementById('habit-name').value.trim() || 'Meu Hábito';
+            const mockHabit = {
+                id: 'preview_alarm',
+                name: habitName,
+                icon: selectedIcon,
+                color: selectedColor,
+                isPreview: true
+            };
+            triggerAlarmScreen(mockHabit);
+        });
+    }
+}
+
+// === Gerenciador dos Dias da Semana do Modal ===
+function updateDaysSummaryBadge() {
+    const checkboxes = Array.from(document.querySelectorAll('input[name="active-days"]'));
+    const checkedBoxes = checkboxes.filter(cb => cb.checked);
+    const count = checkedBoxes.length;
+    const badge = document.getElementById('days-summary-badge');
+    const btnAll = document.getElementById('shortcut-all-days');
+    const btnWeekdays = document.getElementById('shortcut-weekdays');
+    const btnWeekend = document.getElementById('shortcut-weekend');
+
+    const selectedValues = checkedBoxes.map(cb => parseInt(cb.value));
+    const isWeekdays = selectedValues.length === 5 && [1, 2, 3, 4, 5].every(v => selectedValues.includes(v));
+    const isWeekend = selectedValues.length === 2 && [6, 0].every(v => selectedValues.includes(v));
+    const isAll = count === 7;
+
+    if (badge) {
+        if (isAll) badge.textContent = 'Todos os dias';
+        else if (isWeekdays) badge.textContent = 'Dias úteis (5 dias)';
+        else if (isWeekend) badge.textContent = 'Fim de semana (2 dias)';
+        else if (count === 0) badge.textContent = 'Nenhum dia';
+        else badge.textContent = `${count} dias / semana`;
+    }
+
+    if (btnAll) btnAll.classList.toggle('active', isAll);
+    if (btnWeekdays) btnWeekdays.classList.toggle('active', isWeekdays);
+    if (btnWeekend) btnWeekend.classList.toggle('active', isWeekend);
+}
+
+function initDaysSelectorEvents() {
+    const checkboxes = document.querySelectorAll('input[name="active-days"]');
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', () => {
+            triggerHaptic();
+            updateDaysSummaryBadge();
+        });
+    });
+
+    const btnAll = document.getElementById('shortcut-all-days');
+    const btnWeekdays = document.getElementById('shortcut-weekdays');
+    const btnWeekend = document.getElementById('shortcut-weekend');
+
+    if (btnAll) {
+        btnAll.addEventListener('click', () => {
+            checkboxes.forEach(cb => cb.checked = true);
+            triggerHaptic(true);
+            updateDaysSummaryBadge();
+        });
+    }
+
+    if (btnWeekdays) {
+        btnWeekdays.addEventListener('click', () => {
+            checkboxes.forEach(cb => {
+                const val = parseInt(cb.value);
+                cb.checked = (val >= 1 && val <= 5);
+            });
+            triggerHaptic(true);
+            updateDaysSummaryBadge();
+        });
+    }
+
+    if (btnWeekend) {
+        btnWeekend.addEventListener('click', () => {
+            checkboxes.forEach(cb => {
+                const val = parseInt(cb.value);
+                cb.checked = (val === 6 || val === 0);
+            });
+            triggerHaptic(true);
+            updateDaysSummaryBadge();
+        });
+    }
+}
+
 // Modal UI Logic
 const ICONS = ['fa-check', 'fa-book-open', 'fa-dumbbell', 'fa-person-running', 'fa-burger', 'fa-music', 'fa-moon', 'fa-droplet', 'fa-lightbulb'];
 const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#34d399', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'];
@@ -836,9 +1163,10 @@ function openModal(habitId = null) {
             document.querySelectorAll('input[name="active-days"]').forEach(cb => {
                 cb.checked = habit.activeDays.includes(parseInt(cb.value));
             });
+            updateDaysSummaryBadge();
 
             reminderCheckbox.checked = habit.reminderEnabled || false;
-            document.getElementById('habit-reminder-time').value = habit.reminderTime || '12:00';
+            setCustomReminderTime(habit.reminderTime || '09:00');
             reminderTimeGroup.style.display = habit.reminderEnabled ? 'block' : 'none';
         }
     } else {
@@ -851,8 +1179,9 @@ function openModal(habitId = null) {
         document.querySelector(`input[name="habit-type"][value="sim_nao"]`).parentElement.classList.add('active');
 
         document.querySelectorAll('input[name="active-days"]').forEach(cb => cb.checked = true);
+        updateDaysSummaryBadge();
         reminderCheckbox.checked = false;
-        document.getElementById('habit-reminder-time').value = '12:00';
+        setCustomReminderTime('09:00');
         reminderTimeGroup.style.display = 'none';
         selectedIcon = 'fa-check';
         selectedColor = '#34d399';
@@ -1047,10 +1376,11 @@ function renderFocusHabitOptions() {
 
 // Audio & Haptic Feedback
 let audioCtx = null;
-function triggerHaptic() {
+function triggerHaptic(isMajor = false) {
     if ('vibrate' in navigator) {
         try {
-            navigator.vibrate(15);
+            // Aumentado de 15ms para resposta nítida, perceptível e agradável no celular
+            navigator.vibrate(isMajor ? 48 : 38);
         } catch (e) {}
     }
     try {
@@ -1063,13 +1393,13 @@ function triggerHaptic() {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(520, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.025, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.02);
+        osc.frequency.setValueAtTime(isMajor ? 620 : 520, audioCtx.currentTime);
+        gain.gain.setValueAtTime(isMajor ? 0.045 : 0.03, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.03);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.02);
+        osc.stop(audioCtx.currentTime + 0.03);
     } catch (e) {}
 }
 
@@ -1217,7 +1547,7 @@ function setupRulerEvents() {
         if (val !== currentRulerVal) {
             currentRulerVal = val;
             updateRulerUI(val, clampedIdx);
-            triggerHaptic();
+            triggerHaptic(val % 15 === 0);
         }
     };
 
@@ -1248,7 +1578,7 @@ function setupRulerEvents() {
         const newIdx = Math.max(0, Math.min(TOTAL_TICKS - 1, currentIdx + delta));
         if (newIdx !== currentIdx) {
             snapRulerToTick(newIdx, true);
-            triggerHaptic();
+            triggerHaptic(true);
         }
     }, { passive: false });
 
@@ -1258,7 +1588,7 @@ function setupRulerEvents() {
             const val = parseInt(btn.dataset.preset);
             const idx = val / 5;
             snapRulerToTick(idx, true);
-            triggerHaptic();
+            triggerHaptic(true);
         });
     });
 }
@@ -1539,16 +1869,26 @@ startTimerBtn.addEventListener('click', () => {
 });
 
 // Inicialização
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
     document.getElementById('main-date-title').textContent = `Hoje, ${today.getDate()} de ${today.toLocaleString('pt-BR', { month: 'short' }).replace('.', '')}`;
     loadState();
     renderViews();
     initRuler();
+    initCustomTimePickerEvents();
+    initDaysSelectorEvents();
+    initAlarmScreenEvents();
     updateFocusHabitDisplay();
     updateTimeDisplay();
     switchTab(0, false);
     setupBackupHandlers();
-});
+    checkUrlAlarmParams();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
 
 // === Modal de Diálogo Customizado (Alert / Confirm) ===
 function customConfirm(message, callback) {
@@ -1630,12 +1970,266 @@ async function showAppNotification(title, options = {}) {
     }
 }
 
-// === Verificador de Alarmes (Notificações) ===
-setInterval(checkAlarms, 20000); // Roda a cada 20 segundos
+// === Sistema de Alarme em Tela Cheia (Full-Screen Mobile Alarm) ===
+let activeAlarmHabit = null;
+let alarmAudioLoopInterval = null;
+let alarmVibrateLoopInterval = null;
+let alarmClockInterval = null;
+let toastTimeout = null;
+
+function showAppToast(message, iconClass = 'fa-circle-check') {
+    const toast = document.getElementById('app-toast');
+    const msgEl = document.getElementById('app-toast-msg');
+    const iconEl = document.getElementById('app-toast-icon');
+    if (!toast || !msgEl) return;
+
+    if (toastTimeout) clearTimeout(toastTimeout);
+    msgEl.textContent = message;
+    if (iconEl) iconEl.className = `fa-solid ${iconClass}`;
+    toast.classList.remove('hidden');
+
+    toastTimeout = setTimeout(() => {
+        toast.classList.add('hidden');
+    }, 3400);
+}
+
+// Síntese de áudio para som melodioso de despertar/alarme sem depender de arquivos externos
+function playMelodicAlarmBeep() {
+    try {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
+        const now = audioCtx.currentTime;
+        // Padrão de 4 notas alegres e chamativas (E5, G#5, B5, E6)
+        const notes = [659.25, 830.61, 987.77, 1318.51];
+        notes.forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const startTime = now + (idx * 0.12);
+            const endTime = startTime + 0.18;
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, startTime);
+
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(0.08, startTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, endTime);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(startTime);
+            osc.stop(endTime);
+        });
+    } catch (e) {
+        console.warn('Falha no áudio do alarme:', e);
+    }
+}
+
+function playSuccessMelody() {
+    try {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        const now = audioCtx.currentTime;
+        // Fanfarra triunfal de comemoração: C5, E5, G5, C6
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const startTime = now + (idx * 0.08);
+            const duration = idx === 3 ? 0.6 : 0.25;
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, startTime);
+
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(0.09, startTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+        });
+    } catch (e) {}
+}
+
+function updateAlarmLiveClock() {
+    const clockEl = document.getElementById('alarm-clock-display');
+    const dateEl = document.getElementById('alarm-date-display');
+    if (!clockEl || !dateEl) return;
+
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    clockEl.textContent = `${hh}:${mm}`;
+
+    const dateOptions = { weekday: 'long', day: 'numeric', month: 'long' };
+    const dateStr = now.toLocaleDateString('pt-BR', dateOptions);
+    dateEl.textContent = dateStr;
+}
+
+function stopAlarmSoundAndVibration() {
+    if (alarmAudioLoopInterval) {
+        clearInterval(alarmAudioLoopInterval);
+        alarmAudioLoopInterval = null;
+    }
+    if (alarmVibrateLoopInterval) {
+        clearInterval(alarmVibrateLoopInterval);
+        alarmVibrateLoopInterval = null;
+    }
+    if (alarmClockInterval) {
+        clearInterval(alarmClockInterval);
+        alarmClockInterval = null;
+    }
+    if ('vibrate' in navigator) {
+        try {
+            navigator.vibrate(0);
+        } catch (e) {}
+    }
+}
+
+function triggerAlarmScreen(habit) {
+    if (!habit) return;
+    activeAlarmHabit = habit;
+
+    const alarmModal = document.getElementById('full-alarm-modal');
+    const habitNameEl = document.getElementById('alarm-habit-name');
+    const iconEl = document.getElementById('alarm-habit-icon');
+    const iconCircle = document.getElementById('alarm-habit-icon-circle');
+    const glowEl = document.getElementById('alarm-backdrop-glow');
+
+    if (!alarmModal) return;
+
+    // Customizar visual com a cor e ícone do hábito
+    const habitColor = habit.color || '#34d399';
+    alarmModal.style.setProperty('--alarm-accent', habitColor);
+    alarmModal.style.setProperty('--alarm-accent-bg', habitColor + '28');
+    alarmModal.style.setProperty('--alarm-accent-glow', habitColor + '40');
+
+    if (habitNameEl) habitNameEl.textContent = habit.name || 'Meu Hábito';
+    if (iconEl) iconEl.className = `fa-solid ${habit.icon || 'fa-bell'}`;
+    if (iconCircle) {
+        iconCircle.style.color = habitColor;
+        iconCircle.style.borderColor = habitColor;
+    }
+    if (glowEl) {
+        glowEl.style.background = `radial-gradient(circle, ${habitColor} 0%, transparent 70%)`;
+    }
+
+    updateAlarmLiveClock();
+    if (alarmClockInterval) clearInterval(alarmClockInterval);
+    alarmClockInterval = setInterval(updateAlarmLiveClock, 1000);
+
+    // Iniciar som e vibração contínuos
+    stopAlarmSoundAndVibration();
+    playMelodicAlarmBeep();
+    alarmAudioLoopInterval = setInterval(playMelodicAlarmBeep, 2000);
+
+    if ('vibrate' in navigator) {
+        try {
+            navigator.vibrate([350, 150, 350, 150, 500]);
+            alarmVibrateLoopInterval = setInterval(() => {
+                try {
+                    navigator.vibrate([350, 150, 350, 150, 500]);
+                } catch (e) {}
+            }, 2600);
+        } catch (e) {}
+    }
+
+    alarmModal.classList.remove('hidden');
+}
+
+function dismissAlarmScreen() {
+    stopAlarmSoundAndVibration();
+    const alarmModal = document.getElementById('full-alarm-modal');
+    if (alarmModal) alarmModal.classList.add('hidden');
+    activeAlarmHabit = null;
+}
+
+function completeHabitFromAlarm() {
+    if (!activeAlarmHabit) {
+        dismissAlarmScreen();
+        return;
+    }
+
+    const habit = activeAlarmHabit;
+    dismissAlarmScreen();
+
+    // Se for modo preview/teste
+    if (habit.isPreview) {
+        playSuccessMelody();
+        if ('vibrate' in navigator) {
+            try { navigator.vibrate([100, 50, 150, 50, 200]); } catch (e) {}
+        }
+        showAppToast('Teste de alarme concluído com sucesso! 🎉', 'fa-circle-check');
+        return;
+    }
+
+    const todayDateStr = formatDate(new Date());
+    habit.records[todayDateStr] = true;
+    delete habit.snoozedUntil;
+    saveState();
+    renderViews();
+
+    playSuccessMelody();
+    if ('vibrate' in navigator) {
+        try { navigator.vibrate([100, 50, 150, 50, 200]); } catch (e) {}
+    }
+    showAppToast(`"${habit.name}" marcado como concluído! 🎉`, 'fa-circle-check');
+}
+
+function snoozeHabitFromAlarm() {
+    if (!activeAlarmHabit) {
+        dismissAlarmScreen();
+        return;
+    }
+
+    const habit = activeAlarmHabit;
+    dismissAlarmScreen();
+
+    if (habit.isPreview) {
+        showAppToast('Lembrete adiado por 10 minutos (modo de teste) ⏰', 'fa-clock-rotate-left');
+        return;
+    }
+
+    // Adiar por 10 minutos a partir de agora
+    const snoozeTime = new Date(Date.now() + 10 * 60 * 1000);
+    habit.snoozedUntil = snoozeTime.getTime();
+    saveState();
+
+    const hh = String(snoozeTime.getHours()).padStart(2, '0');
+    const mm = String(snoozeTime.getMinutes()).padStart(2, '0');
+    showAppToast(`Lembrete adiado para as ${hh}:${mm} (10 min) ⏰`, 'fa-clock-rotate-left');
+}
+
+function initAlarmScreenEvents() {
+    const completeBtn = document.getElementById('alarm-action-complete');
+    const snoozeBtn = document.getElementById('alarm-action-snooze');
+    const dismissBtn = document.getElementById('alarm-action-dismiss');
+
+    if (completeBtn) {
+        completeBtn.addEventListener('click', completeHabitFromAlarm);
+    }
+    if (snoozeBtn) {
+        snoozeBtn.addEventListener('click', snoozeHabitFromAlarm);
+    }
+    if (dismissBtn) {
+        dismissBtn.addEventListener('click', dismissAlarmScreen);
+    }
+}
+
+// === Verificador de Alarmes (Notificações e Tela Cheia) ===
+setInterval(checkAlarms, 5000); // Roda a cada 5 segundos
 
 function checkAlarms() {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-
     const now = new Date();
     const currentHr = String(now.getHours()).padStart(2, '0');
     const currentMin = String(now.getMinutes()).padStart(2, '0');
@@ -1644,27 +2238,55 @@ function checkAlarms() {
 
     const todayJsDay = now.getDay();
     const todayDateStr = formatDate(now);
+    const nowTimestamp = now.getTime();
 
     let changed = false;
 
     state.habits.forEach(habit => {
-        if (habit.reminderEnabled && habit.reminderTime) {
-            // Verificar se é dia ativo e não foi completado hoje
-            if (habit.activeDays && habit.activeDays.includes(todayJsDay) && !habit.records[todayDateStr]) {
-                const [rHr, rMin] = habit.reminderTime.split(':').map(Number);
-                const reminderMinutes = rHr * 60 + rMin;
+        if (!habit.reminderEnabled) return;
 
-                const isExactTime = habit.reminderTime === timeStr;
-                const isRecentWindow = (currentMinutesOfDay >= reminderMinutes && currentMinutesOfDay <= reminderMinutes + 3);
+        // Verificar se é dia ativo e não foi completado hoje
+        const isDayActive = habit.activeDays && habit.activeDays.includes(todayJsDay);
+        const isAlreadyDone = Boolean(habit.records && habit.records[todayDateStr]);
 
-                if ((isExactTime || isRecentWindow) && habit.lastNotified !== todayDateStr) {
-                    showAppNotification(`Lembrete: ${habit.name}`, {
-                        body: `Está na hora de concluir o seu hábito: ${habit.name}!`,
-                        tag: `reminder-${habit.id}-${todayDateStr}`
-                    });
-                    habit.lastNotified = todayDateStr;
-                    changed = true;
-                }
+        if (!isDayActive || isAlreadyDone) return;
+
+        let shouldTrigger = false;
+
+        // 1. Verificar se estava em modo soneca (adiado por 10 min)
+        if (habit.snoozedUntil && nowTimestamp >= habit.snoozedUntil) {
+            shouldTrigger = true;
+            delete habit.snoozedUntil;
+            changed = true;
+        } else if (habit.reminderTime) {
+            // 2. Horário normal do lembrete diário
+            const [rHr, rMin] = habit.reminderTime.split(':').map(Number);
+            const reminderMinutes = rHr * 60 + rMin;
+            const isExactTime = habit.reminderTime === timeStr;
+            const isRecentWindow = (currentMinutesOfDay >= reminderMinutes && currentMinutesOfDay <= reminderMinutes + 2);
+
+            if ((isExactTime || isRecentWindow) && habit.lastNotified !== todayDateStr) {
+                shouldTrigger = true;
+                habit.lastNotified = todayDateStr;
+                changed = true;
+            }
+        }
+
+        if (shouldTrigger) {
+            // Exibir Alarme de Tela Cheia no App
+            triggerAlarmScreen(habit);
+
+            // Exibir Notificação no Sistema/Service Worker com botões de ação
+            if ('Notification' in window && Notification.permission === 'granted') {
+                showAppNotification(`Lembrete: ${habit.name}`, {
+                    body: `Hora de cumprir sua meta: ${habit.name}! Toque para ver o alarme.`,
+                    tag: `reminder-${habit.id}-${todayDateStr}`,
+                    data: { habitId: habit.id },
+                    actions: [
+                        { action: 'done', title: '✓ Marcar Concluído' },
+                        { action: 'snooze', title: '⏱ Adiar 10 min' }
+                    ]
+                });
             }
         }
     });
@@ -1679,7 +2301,53 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
+// Suporte a mensagens do Service Worker e parâmetros na URL
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'NOTIFICATION_ACTION') {
+            const { action, habitId } = event.data;
+            const habit = state.habits.find(h => h.id === habitId);
+            if (habit) {
+                if (action === 'done') {
+                    activeAlarmHabit = habit;
+                    completeHabitFromAlarm();
+                } else if (action === 'snooze') {
+                    activeAlarmHabit = habit;
+                    snoozeHabitFromAlarm();
+                } else {
+                    triggerAlarmScreen(habit);
+                }
+            }
+        }
+    });
+}
+
+function checkUrlAlarmParams() {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const alarmHabitId = urlParams.get('alarmHabitId');
+        const action = urlParams.get('action');
+
+        if (alarmHabitId) {
+            const habit = state.habits.find(h => h.id === alarmHabitId);
+            if (habit) {
+                if (action === 'done') {
+                    activeAlarmHabit = habit;
+                    completeHabitFromAlarm();
+                } else if (action === 'snooze') {
+                    activeAlarmHabit = habit;
+                    snoozeHabitFromAlarm();
+                } else {
+                    triggerAlarmScreen(habit);
+                }
+            }
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    } catch (e) {}
+}
+
 // === Transição Gradual ao Deslizar Entre Abas (Estilo Celulares Samsung) ===
+// Suporta deslizar em qualquer espaço em branco da tela (inclusive abaixo de um único hábito)
 let dragStartX = 0;
 let dragStartY = 0;
 let dragCurrentX = 0;
@@ -1687,20 +2355,28 @@ let dragStartTime = 0;
 let isHorizontalDrag = null;
 let isTouchActive = false;
 
-if (tabViewport) {
-    tabViewport.addEventListener('touchstart', (e) => {
+const swipeContainer = document.querySelector('.app-container') || tabViewport;
+
+if (swipeContainer) {
+    swipeContainer.addEventListener('touchstart', (e) => {
         // Ignora gestos se qualquer modal estiver aberto
         const modal = document.getElementById('habit-modal');
         const tModal = document.getElementById('timer-slider-modal');
         const cModal = document.getElementById('custom-dialog-modal');
         const bModal = document.getElementById('backup-modal');
+        const aModal = document.getElementById('full-alarm-modal');
+        const fModal = document.getElementById('focus-habit-select-modal');
         if (modal && !modal.classList.contains('hidden')) return;
         if (tModal && !tModal.classList.contains('hidden')) return;
         if (cModal && !cModal.classList.contains('hidden')) return;
         if (bModal && !bModal.classList.contains('hidden')) return;
+        if (aModal && !aModal.classList.contains('hidden')) return;
+        if (fModal && !fModal.classList.contains('hidden')) return;
 
-        // Não interceptar sliders internos
-        if (e.target.closest('#modal-timer-range, input[type="range"]')) return;
+        if (isDraggingHabit) return;
+
+        // Não interceptar cliques no header, abas, botões de ação, inputs ou drag handle
+        if (e.target.closest('.app-header, .tabs, .fab-btn, button, input, select, textarea, .day-box, .picker-item, .color-item, .time-adjust-btn, .preset-btn, .time-preset-pill, .ruler-viewport, .month-nav-header, .drag-handle')) return;
 
         const touch = e.touches[0];
         dragStartX = touch.clientX;
@@ -1711,7 +2387,7 @@ if (tabViewport) {
         isTouchActive = true;
     }, { passive: true });
 
-    tabViewport.addEventListener('touchmove', (e) => {
+    window.addEventListener('touchmove', (e) => {
         if (!isTouchActive) return;
 
         const touch = e.touches[0];
@@ -1759,8 +2435,10 @@ if (tabViewport) {
             if (currentTabIndex !== 2 && tabPages.length > 0) {
                 const targetIdx = deltaX < 0 ? Math.min(tabBtns.length - 1, currentTabIndex + 1) : Math.max(0, currentTabIndex - 1);
                 if (targetIdx !== 2) {
-                    const hCurrent = tabPages[currentTabIndex].offsetHeight;
-                    const hTarget = tabPages[targetIdx].offsetHeight;
+                    const rect = tabViewport.getBoundingClientRect();
+                    const minH = Math.max(340, Math.round(window.innerHeight - (rect.top > 0 ? rect.top : 140) - 20));
+                    const hCurrent = Math.max(tabPages[currentTabIndex].offsetHeight, minH);
+                    const hTarget = Math.max(tabPages[targetIdx].offsetHeight, minH);
                     const dragRatio = Math.min(1, Math.abs(effectiveDelta) / W);
                     const interpHeight = hCurrent + (hTarget - hCurrent) * dragRatio;
                     tabViewport.style.transition = 'none';
@@ -1797,8 +2475,8 @@ if (tabViewport) {
         isHorizontalDrag = null;
     };
 
-    tabViewport.addEventListener('touchend', finishSwipe, { passive: true });
-    tabViewport.addEventListener('touchcancel', finishSwipe, { passive: true });
+    window.addEventListener('touchend', finishSwipe, { passive: true });
+    window.addEventListener('touchcancel', finishSwipe, { passive: true });
 }
 
 // === Backup & Restauração de Dados ===

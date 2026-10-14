@@ -213,6 +213,8 @@ body.light-mode .theme-knob-header {
 /* === Tab Viewport & Smooth Slider (Samsung / ViewPager Style) === */
 .tab-viewport {
     width: 100%;
+    min-height: calc(100vh - 170px);
+    min-height: calc(100dvh - 170px);
     overflow: hidden;
     position: relative;
     touch-action: pan-y;
@@ -222,9 +224,10 @@ body.light-mode .theme-knob-header {
 .tab-track {
     display: flex;
     width: 100%;
+    min-height: 100%;
     gap: 32px;
     will-change: transform;
-    align-items: flex-start;
+    align-items: stretch;
     transition: transform 0.32s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
@@ -232,7 +235,11 @@ body.light-mode .theme-knob-header {
     flex: 0 0 100%;
     width: 100%;
     min-width: 100%;
+    min-height: calc(100vh - 170px);
+    min-height: calc(100dvh - 170px);
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Filter */
@@ -258,6 +265,8 @@ body.light-mode .theme-knob-header {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    flex: 1;
+    min-height: 200px;
 }
 
 .habit-card {
@@ -265,12 +274,55 @@ body.light-mode .theme-knob-header {
     border-radius: var(--border-radius);
     padding: 20px;
     border: 1px solid rgba(255, 255, 255, 0.05);
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease;
+    position: relative;
 }
 
 .habit-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Estado de card sendo arrastado */
+.habit-card.is-dragging {
+    opacity: 0.94;
+    transform: scale(1.025);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75), 0 0 0 2px var(--accent-green);
+    z-index: 100;
+    cursor: grabbing !important;
+}
+
+.habit-card.drag-placeholder {
+    opacity: 0.35;
+    border: 2px dashed var(--accent-green) !important;
+    background: rgba(52, 211, 153, 0.05);
+}
+
+.drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    opacity: 0.45;
+    padding: 8px 10px 8px 0;
+    margin-right: 4px;
+    cursor: grab;
+    touch-action: none;
+    font-size: 1.15rem;
+    transition: opacity 0.2s, color 0.2s;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.habit-card:hover .drag-handle {
+    opacity: 0.85;
+}
+
+.drag-handle:active,
+.habit-card.is-dragging .drag-handle {
+    cursor: grabbing;
+    opacity: 1;
+    color: var(--accent-green);
 }
 
 /* Card border colored subtly */
@@ -969,24 +1021,117 @@ body.light-mode #timer-slider-modal .modal-content {
     background-color: #dc2626 !important;
 }
 
-.days-selector {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+/* === Dias da Semana (Seletor Moderno) === */
+.days-summary-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: rgba(52, 211, 153, 0.15);
+    color: var(--accent-green);
+    letter-spacing: 0.2px;
 }
 
-.days-selector label {
+.days-quick-shortcuts {
     display: flex;
-    align-items: center;
-    gap: 4px;
-    color: #fff;
-    font-size: 0.85rem;
-    background-color: var(--card-bg);
-    padding: 6px 10px;
-    border-radius: 16px;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.day-shortcut-btn {
+    background: rgba(255, 255, 255, 0.04);
     border: 1px solid var(--box-border);
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: 14px;
+    font-size: 0.78rem;
+    font-weight: 500;
     cursor: pointer;
+    transition: all 0.18s ease;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.day-shortcut-btn:hover,
+.day-shortcut-btn:active {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+}
+
+.day-shortcut-btn.active {
+    background: rgba(52, 211, 153, 0.16);
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+    font-weight: 600;
+}
+
+.days-selector-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    width: 100%;
+}
+
+.day-checkbox-label {
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
     margin: 0;
+}
+
+.day-checkbox-label input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.day-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 54px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--box-border);
+    color: var(--text-secondary);
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    gap: 3px;
+}
+
+.day-chip .day-letter {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #e4e4e7;
+    transition: color 0.18s ease;
+}
+
+.day-chip .day-abbr {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    transition: color 0.18s ease;
+}
+
+.day-checkbox-label:active .day-chip {
+    transform: scale(0.94);
+}
+
+.day-checkbox-label input[type="checkbox"]:checked + .day-chip {
+    background: rgba(52, 211, 153, 0.18);
+    border-color: var(--accent-green);
+    box-shadow: 0 4px 14px rgba(52, 211, 153, 0.22);
+}
+
+.day-checkbox-label input[type="checkbox"]:checked + .day-chip .day-letter {
+    color: var(--accent-green);
+}
+
+.day-checkbox-label input[type="checkbox"]:checked + .day-chip .day-abbr {
+    color: var(--accent-green);
+    opacity: 0.88;
 }
 
 /* Switch */
@@ -1380,4 +1525,631 @@ body.light-mode .session-item {
 
 body.light-mode .focus-habit-option-item {
     background: #f4f4f5;
+}
+
+/* ==========================================================================
+   Custom Time Picker Card (Lembrete com visual condizente com o Habit Tick)
+   ========================================================================== */
+.custom-time-picker-card {
+    background: #151518;
+    border: 1px solid var(--box-border);
+    border-radius: 16px;
+    padding: 18px 16px;
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.custom-time-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.custom-time-title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.custom-time-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: rgba(52, 211, 153, 0.15);
+    color: var(--accent-green);
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.custom-time-selector-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 6px 0;
+}
+
+.time-digit-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.time-adjust-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--box-border);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.time-adjust-btn:active {
+    transform: scale(0.9);
+    background: rgba(52, 211, 153, 0.2);
+    border-color: var(--accent-green);
+}
+
+.time-digit-display {
+    font-size: 2.3rem;
+    font-weight: 700;
+    color: #ffffff;
+    width: 78px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    font-variant-numeric: tabular-nums;
+    font-family: 'Inter', monospace, sans-serif;
+    letter-spacing: 1px;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.time-digit-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.8px;
+}
+
+.time-colon-separator {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-bottom: 22px;
+    animation: colonPulse 2s infinite ease-in-out;
+}
+
+@keyframes colonPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+.time-quick-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.time-preset-pill {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--box-border);
+    color: var(--text-secondary);
+    padding: 7px 13px;
+    border-radius: 18px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.time-preset-pill:hover,
+.time-preset-pill:active {
+    background: rgba(255, 255, 255, 0.09);
+    color: #ffffff;
+}
+
+.time-preset-pill.active {
+    background: rgba(52, 211, 153, 0.18);
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+    font-weight: 600;
+}
+
+.test-alarm-btn {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    font-weight: 500;
+    padding: 10px 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.test-alarm-btn:hover,
+.test-alarm-btn:active {
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+    background: rgba(52, 211, 153, 0.08);
+}
+
+/* ==========================================================================
+   Full-Screen Alarm Modal (Alarme de Tela Cheia para Celular)
+   ========================================================================== */
+.alarm-fullscreen-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 99999;
+    background: #0b0b0df2;
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: env(safe-area-inset-top, 24px) 20px env(safe-area-inset-bottom, 24px);
+    animation: alarmFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.alarm-fullscreen-overlay.hidden {
+    display: none !important;
+}
+
+@keyframes alarmFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.alarm-backdrop-glow {
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    top: 35%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, var(--alarm-accent, #34d399) 0%, transparent 70%);
+    opacity: 0.28;
+    filter: blur(40px);
+    pointer-events: none;
+    animation: alarmGlowPulse 2.4s ease-in-out infinite alternate;
+}
+
+@keyframes alarmGlowPulse {
+    0% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.2; }
+    100% { transform: translate(-50%, -50%) scale(1.25); opacity: 0.38; }
+}
+
+.alarm-content-container {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 420px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+}
+
+/* Header com Relógio em Tempo Real */
+.alarm-top-header {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.alarm-pill-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--accent-green);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.alarm-pill-badge i {
+    animation: alarmBellShake 0.7s infinite ease-in-out alternate;
+}
+
+@keyframes alarmBellShake {
+    0% { transform: rotate(-15deg); }
+    100% { transform: rotate(15deg); }
+}
+
+.alarm-clock-display {
+    font-size: 3.4rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -1px;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+    line-height: 1.1;
+    margin-top: 4px;
+}
+
+.alarm-date-display {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-transform: capitalize;
+}
+
+/* Centro com Pulso e Ícone */
+.alarm-center-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+    padding: 10px 0;
+}
+
+.alarm-radar-pulse {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.alarm-pulse-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid var(--alarm-accent, #34d399);
+    opacity: 0;
+    pointer-events: none;
+    animation: alarmPulseRing 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+.alarm-pulse-ring.ring-1 {
+    animation-delay: 0s;
+}
+
+.alarm-pulse-ring.ring-2 {
+    animation-delay: 0.8s;
+}
+
+.alarm-pulse-ring.ring-3 {
+    animation-delay: 1.6s;
+}
+
+@keyframes alarmPulseRing {
+    0% {
+        transform: scale(0.65);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1.6);
+        opacity: 0;
+    }
+}
+
+.alarm-habit-icon-circle {
+    position: relative;
+    z-index: 3;
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: var(--alarm-accent-bg, rgba(52, 211, 153, 0.2));
+    border: 3px solid var(--alarm-accent, #34d399);
+    color: var(--alarm-accent, #34d399);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.4rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 25px var(--alarm-accent-glow, rgba(52, 211, 153, 0.35));
+    animation: alarmIconFloat 2s ease-in-out infinite alternate;
+}
+
+@keyframes alarmIconFloat {
+    0% { transform: translateY(0) scale(1); }
+    100% { transform: translateY(-6px) scale(1.04); }
+}
+
+.alarm-habit-name {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 8px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    max-width: 90%;
+    word-break: break-word;
+}
+
+.alarm-habit-desc {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    max-width: 300px;
+}
+
+/* Ações do Alarme (Concluir e Adiar) */
+.alarm-actions-wrapper {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.alarm-btn-complete {
+    width: 100%;
+    padding: 16px 20px;
+    border-radius: 20px;
+    border: none;
+    background: linear-gradient(135deg, var(--alarm-accent, #34d399), #059669);
+    color: #0b0b0d;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 10px 28px rgba(52, 211, 153, 0.4);
+    transition: transform 0.15s ease, filter 0.15s ease;
+    text-align: left;
+}
+
+.alarm-btn-complete:active {
+    transform: scale(0.97);
+    filter: brightness(0.92);
+}
+
+.alarm-btn-icon-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+
+.alarm-btn-label-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.alarm-btn-main-text {
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.alarm-btn-sub-text {
+    font-size: 0.78rem;
+    opacity: 0.85;
+    font-weight: 500;
+}
+
+.alarm-btn-snooze {
+    width: 100%;
+    padding: 14px 20px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.15s ease;
+    text-align: left;
+}
+
+.alarm-btn-snooze i {
+    font-size: 1.3rem;
+    color: var(--accent-green);
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+}
+
+.alarm-btn-snooze:active {
+    transform: scale(0.97);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.alarm-btn-dismiss {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    font-weight: 500;
+    padding: 8px 12px;
+    cursor: pointer;
+    text-align: center;
+    width: 100%;
+    transition: color 0.15s ease;
+}
+
+.alarm-btn-dismiss:active {
+    color: #ffffff;
+}
+
+/* ==========================================================================
+   Toast Notification
+   ========================================================================== */
+.app-toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f1f24;
+    border: 1px solid var(--box-border);
+    color: #ffffff;
+    padding: 12px 20px;
+    border-radius: 28px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 100000;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.app-toast.hidden {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+    pointer-events: none;
+}
+
+.app-toast i {
+    color: var(--accent-green);
+    font-size: 1.1rem;
+}
+
+/* ==========================================================================
+   Light Mode Overrides for Alarm and Custom Time Picker
+   ========================================================================== */
+body.light-mode .custom-time-picker-card {
+    background: #f4f4f5;
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+body.light-mode .time-adjust-btn {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.1);
+    color: var(--text-primary);
+}
+
+body.light-mode .time-digit-display {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.1);
+    color: var(--text-primary);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+body.light-mode .time-preset-pill {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.1);
+    color: var(--text-secondary);
+}
+
+body.light-mode .time-preset-pill.active {
+    background: rgba(52, 211, 153, 0.18);
+    border-color: var(--accent-green);
+    color: #059669;
+}
+
+body.light-mode .test-alarm-btn {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.15);
+    color: var(--text-secondary);
+}
+
+body.light-mode .alarm-fullscreen-overlay {
+    background: #fffffffa;
+}
+
+body.light-mode .alarm-clock-display,
+body.light-mode .alarm-habit-name {
+    color: #18181b;
+}
+
+body.light-mode .alarm-pill-badge {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.08);
+    color: #059669;
+}
+
+body.light-mode .alarm-btn-snooze {
+    background: #f4f4f5;
+    border-color: rgba(0, 0, 0, 0.08);
+    color: #18181b;
+}
+
+body.light-mode .alarm-btn-snooze i {
+    background: #ffffff;
+}
+
+body.light-mode .app-toast {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.1);
+    color: #18181b;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+body.light-mode .day-chip {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.1);
+    color: var(--text-secondary);
+}
+
+body.light-mode .day-chip .day-letter {
+    color: var(--text-primary);
+}
+
+body.light-mode .day-shortcut-btn {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.1);
+    color: var(--text-secondary);
+}
+
+body.light-mode .day-shortcut-btn.active {
+    background: rgba(52, 211, 153, 0.18);
+    border-color: var(--accent-green);
+    color: #059669;
+}
+
+body.light-mode .drag-handle {
+    color: var(--text-secondary);
 }
