@@ -238,45 +238,28 @@
                                 </div>
 
                                 <div class="custom-time-selector-row">
-                                    <!-- Coluna Horas -->
-                                    <div class="time-digit-column">
-                                        <button type="button" class="time-adjust-btn" id="hour-up-btn" aria-label="Aumentar hora">
-                                            <i class="fa-solid fa-chevron-up"></i>
-                                        </button>
-                                        <div class="time-digit-display" id="hour-display">09</div>
-                                        <button type="button" class="time-adjust-btn" id="hour-down-btn" aria-label="Diminuir hora">
-                                            <i class="fa-solid fa-chevron-down"></i>
-                                        </button>
+                                    <!-- Coluna Horas (Cadeado de Senha Numérica) -->
+                                    <div class="time-tumbler-column" id="hour-tumbler" title="Role ou toque para alterar a hora">
+                                        <div class="time-tumbler-wheel" id="hour-wheel">
+                                            <div class="time-tumbler-digit prev" id="hour-prev" role="button" aria-label="Hora anterior">08</div>
+                                            <div class="time-tumbler-digit current" id="hour-display" aria-label="Hora selecionada">09</div>
+                                            <div class="time-tumbler-digit next" id="hour-next" role="button" aria-label="Próxima hora">10</div>
+                                        </div>
                                         <span class="time-digit-label">HORA</span>
                                     </div>
 
                                     <div class="time-colon-separator">:</div>
 
-                                    <!-- Coluna Minutos -->
-                                    <div class="time-digit-column">
-                                        <button type="button" class="time-adjust-btn" id="minute-up-btn" aria-label="Aumentar minuto">
-                                            <i class="fa-solid fa-chevron-up"></i>
-                                        </button>
-                                        <div class="time-digit-display" id="minute-display">00</div>
-                                        <button type="button" class="time-adjust-btn" id="minute-down-btn" aria-label="Diminuir minuto">
-                                            <i class="fa-solid fa-chevron-down"></i>
-                                        </button>
+                                    <!-- Coluna Minutos (Cadeado de Senha Numérica) -->
+                                    <div class="time-tumbler-column" id="minute-tumbler" title="Role ou toque para alterar os minutos">
+                                        <div class="time-tumbler-wheel" id="minute-wheel">
+                                            <div class="time-tumbler-digit prev" id="minute-prev" role="button" aria-label="Minuto anterior">59</div>
+                                            <div class="time-tumbler-digit current" id="minute-display" aria-label="Minuto selecionado">00</div>
+                                            <div class="time-tumbler-digit next" id="minute-next" role="button" aria-label="Próximo minuto">01</div>
+                                        </div>
                                         <span class="time-digit-label">MINUTO</span>
                                     </div>
                                 </div>
-
-                                <!-- Atalhos rápidos de rotina -->
-                                <div class="time-quick-presets">
-                                    <button type="button" class="time-preset-pill" data-time="07:00">07:00</button>
-                                    <button type="button" class="time-preset-pill" data-time="09:00">09:00</button>
-                                    <button type="button" class="time-preset-pill" data-time="12:30">12:30</button>
-                                    <button type="button" class="time-preset-pill" data-time="18:00">18:00</button>
-                                    <button type="button" class="time-preset-pill" data-time="21:00">21:00</button>
-                                </div>
-
-                                <button type="button" id="test-alarm-btn" class="test-alarm-btn">
-                                    <i class="fa-solid fa-bell"></i> Testar Alarme em Tela Cheia
-                                </button>
                             </div>
                         </div>
 

@@ -213,21 +213,19 @@ body.light-mode .theme-knob-header {
 /* === Tab Viewport & Smooth Slider (Samsung / ViewPager Style) === */
 .tab-viewport {
     width: 100%;
-    min-height: calc(100vh - 170px);
-    min-height: calc(100dvh - 170px);
+    min-height: 180px;
     overflow: hidden;
     position: relative;
     touch-action: pan-y;
-    transition: height 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    transition: height 0.28s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .tab-track {
     display: flex;
     width: 100%;
-    min-height: 100%;
     gap: 32px;
     will-change: transform;
-    align-items: stretch;
+    align-items: flex-start;
     transition: transform 0.32s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
@@ -235,8 +233,6 @@ body.light-mode .theme-knob-header {
     flex: 0 0 100%;
     width: 100%;
     min-width: 100%;
-    min-height: calc(100vh - 170px);
-    min-height: calc(100dvh - 170px);
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -1138,8 +1134,10 @@ body.light-mode #timer-slider-modal .modal-content {
 .switch {
     position: relative;
     display: inline-block;
-    width: 44px;
-    height: 24px;
+    width: 48px;
+    height: 26px;
+    min-width: 48px;
+    flex-shrink: 0;
 }
 
 .switch input {
@@ -1156,20 +1154,21 @@ body.light-mode #timer-slider-modal .modal-content {
     right: 0;
     bottom: 0;
     background-color: var(--box-border);
-    transition: .3s;
-    border-radius: 24px;
+    transition: background-color 0.25s ease;
+    border-radius: 26px;
 }
 
 .slider:before {
     position: absolute;
     content: "";
-    height: 18px;
-    width: 18px;
+    height: 20px;
+    width: 20px;
     left: 3px;
-    bottom: 3px;
+    top: 3px;
     background-color: #fff;
-    transition: .3s;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 input:checked+.slider {
@@ -1177,7 +1176,7 @@ input:checked+.slider {
 }
 
 input:checked+.slider:before {
-    transform: translateX(20px);
+    transform: translateX(22px);
 }
 
 .time-input {
@@ -1571,56 +1570,92 @@ body.light-mode .focus-habit-option-item {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    padding: 6px 0;
+    gap: 16px;
+    padding: 10px 0;
 }
 
-.time-digit-column {
+.time-tumbler-column {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
-.time-adjust-btn {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--box-border);
-    color: var(--text-primary);
+.time-tumbler-wheel {
+    position: relative;
+    width: 82px;
+    height: 152px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.02) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    padding: 4px 0;
+    box-shadow: inset 0 8px 14px rgba(0, 0, 0, 0.65), inset 0 -8px 14px rgba(0, 0, 0, 0.65);
+    overflow: hidden;
+    touch-action: pan-x;
+    cursor: grab;
+}
+
+.time-tumbler-wheel:active {
+    cursor: grabbing;
+}
+
+.time-tumbler-digit {
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.95rem;
+    font-family: 'Inter', monospace, sans-serif;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     cursor: pointer;
-    transition: all 0.18s ease;
 }
 
-.time-adjust-btn:active {
-    transform: scale(0.9);
-    background: rgba(52, 211, 153, 0.2);
-    border-color: var(--accent-green);
+.time-tumbler-digit.prev {
+    height: 38px;
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    opacity: 0.35;
+    transform: perspective(80px) rotateX(16deg) scale(0.9);
 }
 
-.time-digit-display {
+.time-tumbler-digit.prev:hover,
+.time-tumbler-digit.prev:active {
+    opacity: 0.85;
+    color: #ffffff;
+}
+
+.time-tumbler-digit.current {
+    height: 56px;
     font-size: 2.3rem;
     font-weight: 700;
     color: #ffffff;
-    width: 78px;
-    height: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 14px;
-    font-variant-numeric: tabular-nums;
-    font-family: 'Inter', monospace, sans-serif;
-    letter-spacing: 1px;
-    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
-    user-select: none;
-    -webkit-user-select: none;
+    background: rgba(52, 211, 153, 0.12);
+    border-top: 1px solid rgba(52, 211, 153, 0.35);
+    border-bottom: 1px solid rgba(52, 211, 153, 0.35);
+    box-shadow: 0 0 16px rgba(52, 211, 153, 0.15);
+}
+
+.time-tumbler-digit.next {
+    height: 38px;
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    opacity: 0.35;
+    transform: perspective(80px) rotateX(-16deg) scale(0.9);
+}
+
+.time-tumbler-digit.next:hover,
+.time-tumbler-digit.next:active {
+    opacity: 0.85;
+    color: #ffffff;
 }
 
 .time-digit-label {
@@ -1643,60 +1678,16 @@ body.light-mode .focus-habit-option-item {
     50% { opacity: 0.35; }
 }
 
-.time-quick-presets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
+body.light-mode .time-tumbler-wheel {
+    background: linear-gradient(180deg, #f0f0f3 0%, #ffffff 50%, #f0f0f3 100%);
+    border-color: #d4d4d8;
+    box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.08), inset 0 -6px 10px rgba(0, 0, 0, 0.08);
 }
 
-.time-preset-pill {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--box-border);
-    color: var(--text-secondary);
-    padding: 7px 13px;
-    border-radius: 18px;
-    font-size: 0.82rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.18s ease;
-}
-
-.time-preset-pill:hover,
-.time-preset-pill:active {
-    background: rgba(255, 255, 255, 0.09);
-    color: #ffffff;
-}
-
-.time-preset-pill.active {
+body.light-mode .time-tumbler-digit.current {
+    color: #18181b;
     background: rgba(52, 211, 153, 0.18);
     border-color: var(--accent-green);
-    color: var(--accent-green);
-    font-weight: 600;
-}
-
-.test-alarm-btn {
-    width: 100%;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px dashed rgba(255, 255, 255, 0.15);
-    border-radius: 12px;
-    color: var(--text-secondary);
-    font-size: 0.84rem;
-    font-weight: 500;
-    padding: 10px 14px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: all 0.2s ease;
-}
-
-.test-alarm-btn:hover,
-.test-alarm-btn:active {
-    border-color: var(--accent-green);
-    color: var(--accent-green);
-    background: rgba(52, 211, 153, 0.08);
 }
 
 /* ==========================================================================

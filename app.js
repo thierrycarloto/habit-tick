@@ -121,12 +121,10 @@ function updateViewportHeight(animate = false) {
     }
     const activePage = tabPages[currentTabIndex];
     if (activePage) {
-        const rect = tabViewport.getBoundingClientRect();
-        // Altura mínima para preencher o restante da tela visível (evita espaço morto sem swipe abaixo de 1 hábito)
-        const minViewportH = Math.max(340, Math.round(window.innerHeight - (rect.top > 0 ? rect.top : 140) - 20));
-        const contentH = activePage.offsetHeight;
-        const targetH = Math.max(contentH, minViewportH);
-        tabViewport.style.transition = animate ? 'height 0.3s cubic-bezier(0.25, 1, 0.5, 1)' : 'none';
+        const contentH = activePage.offsetHeight || activePage.scrollHeight;
+        // Limita a altura estritamente ao conteúdo + 24px de respiro (sem rolagem desnecessária no vazio)
+        const targetH = Math.max(160, contentH + 24);
+        tabViewport.style.transition = animate ? 'height 0.28s cubic-bezier(0.25, 1, 0.5, 1)' : 'none';
         tabViewport.style.height = `${targetH}px`;
     }
 }
@@ -883,7 +881,7 @@ reminderCheckbox.addEventListener('change', async (e) => {
     }
 });
 
-// === Seletor de Horário Customizado (Layout condizente com Habit Tick) ===
+// === Seletor de Horário Customizado Estilo Cadeado de Senha Numérica ===
 let customReminderHour = 9;
 let customReminderMinute = 0;
 
@@ -899,19 +897,33 @@ function updateCustomTimePickerUI() {
     const mm = String(customReminderMinute).padStart(2, '0');
     const timeStr = `${hh}:${mm}`;
 
+    const prevHr = String((customReminderHour - 1 + 24) % 24).padStart(2, '0');
+    const nextHr = String((customReminderHour + 1) % 24).padStart(2, '0');
+
+    const prevMin = String((customReminderMinute - 1 + 60) % 60).padStart(2, '0');
+    const nextMin = String((customReminderMinute + 1) % 60).padStart(2, '0');
+
+    const hourPrev = document.getElementById('hour-prev');
     const hourDisplay = document.getElementById('hour-display');
-    const minuteDisplay = document.getElementById('minute-display');
+    const hourNext = document.getElementById('hour-next');
+
+    const minPrev = document.getElementById('minute-prev');
+    const minDisplay = document.getElementById('minute-display');
+    const minNext = document.getElementById('minute-next');
+
     const reminderTimeInput = document.getElementById('habit-reminder-time');
     const periodBadge = document.getElementById('custom-time-period-badge');
 
+    if (hourPrev) hourPrev.textContent = prevHr;
     if (hourDisplay) hourDisplay.textContent = hh;
-    if (minuteDisplay) minuteDisplay.textContent = mm;
+    if (hourNext) hourNext.textContent = nextHr;
+
+    if (minPrev) minPrev.textContent = prevMin;
+    if (minDisplay) minDisplay.textContent = mm;
+    if (minNext) minNext.textContent = nextMin;
+
     if (reminderTimeInput) reminderTimeInput.value = timeStr;
     if (periodBadge) periodBadge.textContent = getTimePeriodLabel(customReminderHour);
-
-    document.querySelectorAll('.time-preset-pill').forEach(pill => {
-        pill.classList.toggle('active', pill.dataset.time === timeStr);
-    });
 }
 
 function setCustomReminderTime(timeStr) {
@@ -923,89 +935,67 @@ function setCustomReminderTime(timeStr) {
 }
 
 function initCustomTimePickerEvents() {
-    const hourUp = document.getElementById('hour-up-btn');
-    const hourDown = document.getElementById('hour-down-btn');
-    const minuteUp = document.getElementById('minute-up-btn');
-    const minuteDown = document.getElementById('minute-down-btn');
-    const hourDisplay = document.getElementById('hour-display');
-    const minuteDisplay = document.getElementById('minute-display');
-    const testAlarmBtn = document.getElementById('test-alarm-btn');
+    const hourPrev = document.getElementById('hour-prev');
+    const hourNext = document.getElementById('hour-next');
+    const minutePrev = document.getElementById('minute-prev');
+    const minuteNext = document.getElementById('minute-next');
 
-    if (hourUp) {
-        hourUp.addEventListener('click', () => {
-            customReminderHour = (customReminderHour + 1) % 24;
+    const hourWheel = document.getElementById('hour-wheel');
+    const minuteWheel = document.getElementById('minute-wheel');
+
+    const stepHour = (dir) => {
+        customReminderHour = (customReminderHour + dir + 24) % 24;
+        triggerHaptic();
+        updateCustomTimePickerUI();
+    };
+
+    const stepMinute = (dir) => {
+        customReminderMinute = (customReminderMinute + dir + 60) % 60;
+        triggerHaptic();
+        updateCustomTimePickerUI();
+    };
+
+    if (hourPrev) hourPrev.addEventListener('click', () => stepHour(-1));
+    if (hourNext) hourNext.addEventListener('click', () => stepHour(1));
+    if (minutePrev) minutePrev.addEventListener('click', () => stepMinute(-1));
+    if (minuteNext) minuteNext.addEventListener('click', () => stepMinute(1));
+
+    // Suporte a arrasto vertical (touch swipe) e scroll da roda do mouse no cadeado
+    const attachTumblerSwipe = (el, onStep) => {
+        if (!el) return;
+        let startY = 0;
+        let lastY = 0;
+        let accumulated = 0;
+        const THRESHOLD = 22;
+
+        el.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+            lastY = startY;
+            accumulated = 0;
             triggerHaptic();
-            updateCustomTimePickerUI();
-        });
-    }
+        }, { passive: true });
 
-    if (hourDown) {
-        hourDown.addEventListener('click', () => {
-            customReminderHour = (customReminderHour - 1 + 24) % 24;
-            triggerHaptic();
-            updateCustomTimePickerUI();
-        });
-    }
-
-    if (minuteUp) {
-        minuteUp.addEventListener('click', () => {
-            customReminderMinute = (customReminderMinute + 1) % 60;
-            triggerHaptic();
-            updateCustomTimePickerUI();
-        });
-    }
-
-    if (minuteDown) {
-        minuteDown.addEventListener('click', () => {
-            customReminderMinute = (customReminderMinute - 1 + 60) % 60;
-            triggerHaptic();
-            updateCustomTimePickerUI();
-        });
-    }
-
-    if (hourDisplay) {
-        hourDisplay.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const delta = e.deltaY < 0 ? 1 : -1;
-            customReminderHour = (customReminderHour + delta + 24) % 24;
-            triggerHaptic();
-            updateCustomTimePickerUI();
-        }, { passive: false });
-    }
-
-    if (minuteDisplay) {
-        minuteDisplay.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const delta = e.deltaY < 0 ? 1 : -1;
-            customReminderMinute = (customReminderMinute + delta + 60) % 60;
-            triggerHaptic();
-            updateCustomTimePickerUI();
-        }, { passive: false });
-    }
-
-    document.querySelectorAll('.time-preset-pill').forEach(pill => {
-        pill.addEventListener('click', () => {
-            const t = pill.dataset.time;
-            if (t) {
-                setCustomReminderTime(t);
-                triggerHaptic(true);
+        el.addEventListener('touchmove', (e) => {
+            const y = e.touches[0].clientY;
+            const diff = lastY - y; // Arrasta para cima -> avança número
+            accumulated += diff;
+            lastY = y;
+            if (Math.abs(accumulated) >= THRESHOLD) {
+                const dir = accumulated > 0 ? 1 : -1;
+                onStep(dir);
+                accumulated = 0;
             }
-        });
-    });
+        }, { passive: true });
 
-    if (testAlarmBtn) {
-        testAlarmBtn.addEventListener('click', () => {
-            const habitName = document.getElementById('habit-name').value.trim() || 'Meu Hábito';
-            const mockHabit = {
-                id: 'preview_alarm',
-                name: habitName,
-                icon: selectedIcon,
-                color: selectedColor,
-                isPreview: true
-            };
-            triggerAlarmScreen(mockHabit);
-        });
-    }
+        el.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const dir = e.deltaY > 0 ? 1 : -1;
+            onStep(dir);
+        }, { passive: false });
+    };
+
+    attachTumblerSwipe(hourWheel, stepHour);
+    attachTumblerSwipe(minuteWheel, stepMinute);
 }
 
 // === Gerenciador dos Dias da Semana do Modal ===
@@ -1223,8 +1213,13 @@ habitForm.addEventListener('submit', async (e) => {
             activeDays,
             reminderEnabled,
             reminderTime,
-            type: habitType
+            type: habitType,
+            forceAlarmToday: reminderEnabled
         };
+        // Limpar travas de notificação anteriores para permitir testes no mesmo dia
+        delete state.habits[existingIndex].lastNotified;
+        delete state.habits[existingIndex].lastNotifiedKey;
+        delete state.habits[existingIndex].snoozedUntil;
     } else {
         state.habits.push({
             id,
@@ -1237,13 +1232,17 @@ habitForm.addEventListener('submit', async (e) => {
             reminderTime,
             type: habitType,
             sessions: [],
-            totalFocusTime: 0
+            totalFocusTime: 0,
+            forceAlarmToday: reminderEnabled
         });
     }
 
     saveState();
     renderViews();
     modal.classList.add('hidden');
+    if (reminderEnabled) {
+        showAppToast(`Lembrete definido para as ${reminderTime}! ⏰`, 'fa-bell');
+    }
 });
 
 document.getElementById('delete-habit-btn').addEventListener('click', () => {
@@ -1379,8 +1378,8 @@ let audioCtx = null;
 function triggerHaptic(isMajor = false) {
     if ('vibrate' in navigator) {
         try {
-            // Aumentado de 15ms para resposta nítida, perceptível e agradável no celular
-            navigator.vibrate(isMajor ? 48 : 38);
+            // Duração calibrada para acionar os motores táteis dos celulares Android com clareza
+            navigator.vibrate(isMajor ? 70 : 50);
         } catch (e) {}
     }
     try {
@@ -1393,13 +1392,13 @@ function triggerHaptic(isMajor = false) {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(isMajor ? 620 : 520, audioCtx.currentTime);
-        gain.gain.setValueAtTime(isMajor ? 0.045 : 0.03, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.03);
+        osc.frequency.setValueAtTime(isMajor ? 640 : 520, audioCtx.currentTime);
+        gain.gain.setValueAtTime(isMajor ? 0.05 : 0.03, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.035);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.03);
+        osc.stop(audioCtx.currentTime + 0.035);
     } catch (e) {}
 }
 
@@ -1517,6 +1516,8 @@ function setupRulerEvents() {
         try {
             rulerViewport.setPointerCapture(e.pointerId);
         } catch (err) {}
+        // Aciona vibração imediatamente ao tocar (User Activation essencial no Android)
+        triggerHaptic(true);
     };
 
     const onPointerMove = (e) => {
@@ -2227,7 +2228,7 @@ function initAlarmScreenEvents() {
 }
 
 // === Verificador de Alarmes (Notificações e Tela Cheia) ===
-setInterval(checkAlarms, 5000); // Roda a cada 5 segundos
+setInterval(checkAlarms, 3000); // Roda a cada 3 segundos
 
 function checkAlarms() {
     const now = new Date();
@@ -2245,11 +2246,12 @@ function checkAlarms() {
     state.habits.forEach(habit => {
         if (!habit.reminderEnabled) return;
 
-        // Verificar se é dia ativo e não foi completado hoje
+        // Verificar se é dia ativo e não foi completado hoje (permitir se forceAlarmToday estiver ativo para teste)
         const isDayActive = habit.activeDays && habit.activeDays.includes(todayJsDay);
         const isAlreadyDone = Boolean(habit.records && habit.records[todayDateStr]);
 
-        if (!isDayActive || isAlreadyDone) return;
+        if (!isDayActive && !habit.forceAlarmToday) return;
+        if (isAlreadyDone && !habit.forceAlarmToday) return;
 
         let shouldTrigger = false;
 
@@ -2264,10 +2266,13 @@ function checkAlarms() {
             const reminderMinutes = rHr * 60 + rMin;
             const isExactTime = habit.reminderTime === timeStr;
             const isRecentWindow = (currentMinutesOfDay >= reminderMinutes && currentMinutesOfDay <= reminderMinutes + 2);
+            const alarmKey = `${todayDateStr}_${habit.reminderTime}`;
 
-            if ((isExactTime || isRecentWindow) && habit.lastNotified !== todayDateStr) {
+            if ((isExactTime || isRecentWindow) && habit.lastNotifiedKey !== alarmKey) {
                 shouldTrigger = true;
+                habit.lastNotifiedKey = alarmKey;
                 habit.lastNotified = todayDateStr;
+                delete habit.forceAlarmToday;
                 changed = true;
             }
         }
@@ -2280,7 +2285,7 @@ function checkAlarms() {
             if ('Notification' in window && Notification.permission === 'granted') {
                 showAppNotification(`Lembrete: ${habit.name}`, {
                     body: `Hora de cumprir sua meta: ${habit.name}! Toque para ver o alarme.`,
-                    tag: `reminder-${habit.id}-${todayDateStr}`,
+                    tag: `reminder-${habit.id}-${todayDateStr}-${habit.reminderTime || ''}`,
                     data: { habitId: habit.id },
                     actions: [
                         { action: 'done', title: '✓ Marcar Concluído' },
@@ -2435,10 +2440,8 @@ if (swipeContainer) {
             if (currentTabIndex !== 2 && tabPages.length > 0) {
                 const targetIdx = deltaX < 0 ? Math.min(tabBtns.length - 1, currentTabIndex + 1) : Math.max(0, currentTabIndex - 1);
                 if (targetIdx !== 2) {
-                    const rect = tabViewport.getBoundingClientRect();
-                    const minH = Math.max(340, Math.round(window.innerHeight - (rect.top > 0 ? rect.top : 140) - 20));
-                    const hCurrent = Math.max(tabPages[currentTabIndex].offsetHeight, minH);
-                    const hTarget = Math.max(tabPages[targetIdx].offsetHeight, minH);
+                    const hCurrent = Math.max(160, (tabPages[currentTabIndex].offsetHeight || 200) + 24);
+                    const hTarget = Math.max(160, (tabPages[targetIdx].offsetHeight || 200) + 24);
                     const dragRatio = Math.min(1, Math.abs(effectiveDelta) / W);
                     const interpHeight = hCurrent + (hTarget - hCurrent) * dragRatio;
                     tabViewport.style.transition = 'none';
