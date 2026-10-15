@@ -1947,7 +1947,7 @@ body.light-mode .time-tumbler-digit.current {
 }
 
 .alarm-target-icon {
-    font-size: 1.4rem;
+    font-size: 1.6rem;
     color: var(--alarm-accent, #34d399);
     opacity: 0.7;
     transition: transform 0.2s;
@@ -1955,20 +1955,7 @@ body.light-mode .time-tumbler-digit.current {
 
 .alarm-target-zone.active-target .alarm-target-icon {
     opacity: 1;
-    transform: scale(1.2);
-}
-
-.alarm-target-text {
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    transition: color 0.2s;
-}
-
-.alarm-target-zone.active-target .alarm-target-text {
-    color: #ffffff;
+    transform: scale(1.25);
 }
 
 .alarm-habit-icon-circle {
