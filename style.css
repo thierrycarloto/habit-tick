@@ -626,6 +626,10 @@ body.light-mode .timer-track {
     max-width: 80%;
 }
 
+.focus-desc:empty {
+    display: none;
+}
+
 .primary-btn {
     background-color: var(--accent-green);
     color: #000;
@@ -1882,7 +1886,7 @@ body.light-mode .time-tumbler-digit.current {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 8px 0 12px;
+    margin: 18px 0 16px;
 }
 
 .alarm-pulse-ring {
@@ -2027,19 +2031,24 @@ body.light-mode .time-tumbler-digit.current {
     gap: 12px;
 }
 
-/* Pílula de Adiar no estilo exato da imagem de referência 2 */
+/* Pílula de Adiar no estilo integrado com o design do aplicativo */
 .alarm-snooze-pill-container {
     width: 100%;
     max-width: 320px;
-    height: 58px;
+    height: 54px;
     border-radius: 9999px;
-    background: linear-gradient(135deg, #5b55e3, #4f46e5);
+    background: #18181c;
+    border: 1px solid var(--box-border);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 8px;
-    box-shadow: 0 10px 28px rgba(79, 70, 229, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.3);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    padding: 5px 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.alarm-snooze-pill-container:hover {
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
 .alarm-snooze-pill-container:active {
@@ -2047,23 +2056,27 @@ body.light-mode .time-tumbler-digit.current {
 }
 
 .snooze-adj-btn {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.22);
-    border: none;
-    color: #ffffff;
-    font-size: 1.15rem;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    font-size: 1rem;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
-    transition: background 0.15s, transform 0.1s;
+    transition: background 0.15s ease, transform 0.1s ease, color 0.15s ease;
+}
+
+.snooze-adj-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
 }
 
 .snooze-adj-btn:active {
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(255, 255, 255, 0.22);
     transform: scale(0.92);
 }
 
@@ -2071,14 +2084,27 @@ body.light-mode .time-tumbler-digit.current {
     flex: 1;
     background: transparent;
     border: none;
-    color: #ffffff;
-    font-size: 1.05rem;
+    color: var(--text-primary);
+    font-size: 0.98rem;
     font-weight: 600;
     cursor: pointer;
     text-align: center;
-    padding: 0 12px;
+    padding: 0 10px;
     white-space: nowrap;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: color 0.15s ease;
+}
+
+.alarm-btn-snooze-main i {
+    color: var(--accent-green);
+    font-size: 0.95rem;
+}
+
+.alarm-btn-snooze-main:hover {
+    color: var(--accent-green);
 }
 
 .alarm-btn-dismiss {
@@ -2093,6 +2119,7 @@ body.light-mode .time-tumbler-digit.current {
     transition: color 0.15s ease;
 }
 
+.alarm-btn-dismiss:hover,
 .alarm-btn-dismiss:active {
     color: #ffffff;
 }
@@ -2186,14 +2213,41 @@ body.light-mode .alarm-pill-badge {
     color: #059669;
 }
 
-body.light-mode .alarm-btn-snooze {
+body.light-mode .alarm-snooze-pill-container {
     background: #f4f4f5;
-    border-color: rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+body.light-mode .snooze-adj-btn {
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
     color: #18181b;
 }
 
-body.light-mode .alarm-btn-snooze i {
-    background: #ffffff;
+body.light-mode .snooze-adj-btn:hover {
+    background: #e4e4e7;
+}
+
+body.light-mode .snooze-adj-btn:active {
+    background: #d4d4d8;
+}
+
+body.light-mode .alarm-btn-snooze-main {
+    color: #18181b;
+}
+
+body.light-mode .alarm-btn-snooze-main i {
+    color: #059669;
+}
+
+body.light-mode .alarm-btn-dismiss {
+    color: var(--text-secondary);
+}
+
+body.light-mode .alarm-btn-dismiss:hover,
+body.light-mode .alarm-btn-dismiss:active {
+    color: #18181b;
 }
 
 body.light-mode .app-toast {

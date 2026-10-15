@@ -1807,7 +1807,7 @@ function updateTimeDisplay() {
         timerCircle.classList.remove('stopwatch-running');
         const chosenMins = parseInt(timerInput.value) || 25;
         timerSublabel.textContent = `${chosenMins} min`;
-        focusDescText.textContent = 'Fique longe do celular e foque no que importa.';
+        focusDescText.textContent = '';
 
         const minutes = Math.floor(timeLeft / 60);
         const seconds = timeLeft % 60;
@@ -1920,14 +1920,14 @@ startTimerBtn.addEventListener('click', () => {
         isTimerRunning = true;
         isCancelPeriod = true;
         elapsedSeconds = 0;
-        startTimerBtn.textContent = 'Cancelar (10s)';
+        startTimerBtn.textContent = 'Cancelar (5s)';
         startTimerBtn.classList.remove('btn-danger', 'btn-finish-focus');
         timerInput.disabled = true;
 
         if (timerProgressRing) timerProgressRing.style.transition = 'stroke-dashoffset 0.9s linear';
         if (timerDotGroup) timerDotGroup.style.transition = 'transform 0.9s linear';
 
-        let cancelSeconds = 10;
+        let cancelSeconds = 5;
         const cancelTextInterval = setInterval(() => {
             if (isCancelPeriod) {
                 cancelSeconds--;
@@ -1952,7 +1952,7 @@ startTimerBtn.addEventListener('click', () => {
                     startTimerBtn.classList.add('btn-danger');
                 }
             }
-        }, 10000);
+        }, 5000);
 
         if (isStopwatch) {
             // Cronômetro Crescente (Modo Livre até 180 min = 10800s)
@@ -2271,11 +2271,6 @@ function triggerAlarmScreen(habit) {
     }
     const targetZone = document.getElementById('alarm-target-zone');
     if (targetZone) targetZone.classList.remove('active-target');
-    const guideEl = document.getElementById('alarm-drag-guide');
-    if (guideEl) {
-        guideEl.classList.remove('ready');
-        guideEl.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square"></i> Toque na bola e arraste para fora para concluir';
-    }
     if (glowEl) {
         glowEl.style.background = `radial-gradient(circle, ${habitColor} 0%, transparent 70%)`;
     }
@@ -2368,7 +2363,6 @@ function snoozeHabitFromAlarm() {
 function initAlarmScreenEvents() {
     const habitCircle = document.getElementById('alarm-habit-icon-circle');
     const targetZone = document.getElementById('alarm-target-zone');
-    const guideEl = document.getElementById('alarm-drag-guide');
     const snoozeBtn = document.getElementById('alarm-action-snooze');
     const snoozeMinus = document.getElementById('alarm-snooze-minus');
     const snoozePlus = document.getElementById('alarm-snooze-plus');
@@ -2438,12 +2432,6 @@ function initAlarmScreenEvents() {
         const isReady = currentDist >= CONFIRM_THRESHOLD;
         if (targetZone) targetZone.classList.toggle('active-target', isReady);
         habitCircle.classList.toggle('ready-to-confirm', isReady);
-        if (guideEl) {
-            guideEl.classList.toggle('ready', isReady);
-            guideEl.innerHTML = isReady 
-                ? '<i class="fa-solid fa-circle-check"></i> Solte para marcar como concluído!'
-                : '<i class="fa-solid fa-arrow-up-right-from-square"></i> Arraste a bola para fora para concluir';
-        }
 
         if (isReady && !hasAlertedReady) {
             hasAlertedReady = true;
@@ -2471,10 +2459,6 @@ function initAlarmScreenEvents() {
             habitCircle.style.transform = 'translate(0px, 0px)';
             if (targetZone) targetZone.classList.remove('active-target');
             habitCircle.classList.remove('ready-to-confirm');
-            if (guideEl) {
-                guideEl.classList.remove('ready');
-                guideEl.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square"></i> Toque na bola e arraste para fora para concluir';
-            }
         }
         currentDist = 0;
         hasAlertedReady = false;

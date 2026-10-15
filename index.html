@@ -90,7 +90,7 @@
                             <span class="time-display">25:00</span>
                             <span class="timer-sublabel" id="timer-sublabel">25 min</span>
                         </div>
-                        <p class="focus-desc" id="focus-desc-text">Fique longe do celular e foque no que importa.</p>
+                        <p class="focus-desc" id="focus-desc-text"></p>
                         <button class="primary-btn start-timer-btn">Iniciar Foco</button>
                     </div>
                 </main>
@@ -372,7 +372,6 @@
 
             <div class="alarm-center-card">
                 <h2 class="alarm-habit-name" id="alarm-habit-name">Nome do Hábito</h2>
-                <p class="alarm-habit-desc" id="alarm-habit-desc">Hora de cumprir sua meta e manter a constância!</p>
 
                 <!-- Arena da bola com interação de arrastar para fora para confirmar -->
                 <div class="alarm-drag-arena" id="alarm-drag-arena">
@@ -391,10 +390,6 @@
                         <i class="fa-solid fa-bell" id="alarm-habit-icon"></i>
                     </div>
                 </div>
-
-                <div class="alarm-drag-guide" id="alarm-drag-guide">
-                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Toque na bola e arraste para fora para concluir
-                </div>
             </div>
 
             <!-- Ações do Alarme: Pílula de Adiar (com ajuste de minutos) e Fechar sem marcar -->
@@ -404,6 +399,7 @@
                         <i class="fa-solid fa-minus"></i>
                     </button>
                     <button type="button" id="alarm-action-snooze" class="alarm-btn-snooze-main">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
                         <span id="alarm-snooze-text">Adiar 10 minutos</span>
                     </button>
                     <button type="button" class="snooze-adj-btn" id="alarm-snooze-plus" aria-label="Aumentar tempo de adiar">
