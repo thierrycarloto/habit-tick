@@ -80,8 +80,8 @@ function saveState() {
 
 // === Lembretes com o app fechado (Web Push) ===
 // Preencha após publicar o servidor em /push-worker (veja o README de lá)
-const PUSH_SERVER_URL = '';   // ex.: 'https://habit-tick-push.SEUUSUARIO.workers.dev'
-const VAPID_PUBLIC_KEY = ''; // chave pública gerada com: npx web-push generate-vapid-keys
+const PUSH_SERVER_URL = 'https://habit-tick-push.thierrycarloto.workers.dev';   // ex.: 'https://habit-tick-push.SEUUSUARIO.workers.dev'
+const VAPID_PUBLIC_KEY = 'BNfZ-kjmwI7sZdeX_YcA83GhKFGlsjq3ec4BEo8F_DU1L6T4hRNQsAtY07nAmgzyc2Bv-bYJyackuYi4aWTXPDk'; // chave pública gerada com: npx web-push generate-vapid-keys
 
 let pushSyncTimer = null;
 function schedulePushSync() {

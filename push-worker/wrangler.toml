@@ -1,0 +1,11 @@
+name = "habit-tick-push"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+[triggers]
+crons = ["* * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "habit-tick-db"
+database_id = "69b90650-5072-46b9-91ca-ef666d60967d"
