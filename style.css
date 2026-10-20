@@ -2269,3 +2269,7 @@ body.light-mode .day-shortcut-btn.active {
 body.light-mode .drag-handle {
     color: var(--text-secondary);
 }
+/* Dias congelados (segunda chance) */
+.day-box.frozen, .cal-box.frozen { background: rgba(56, 189, 248, 0.22) !important; border-color: #38bdf8 !important; color: #38bdf8 !important; }
+.day-box.freezable, .cal-box.freezable { cursor: pointer; border: 1.5px dashed #38bdf8 !important; color: #38bdf8 !important; animation: freezePulse 1.8s ease-in-out infinite; }
+@keyframes freezePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(56,189,248,0.35); } 50% { box-shadow: 0 0 0 5px rgba(56,189,248,0); } }

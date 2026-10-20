@@ -75,6 +75,63 @@ function loadState() {
 
 function saveState() {
     localStorage.setItem('habitTickStateV2', JSON.stringify(state));
+    schedulePushSync();
+}
+
+// === Lembretes com o app fechado (Web Push) ===
+// Preencha após publicar o servidor em /push-worker (veja o README de lá)
+const PUSH_SERVER_URL = '';   // ex.: 'https://habit-tick-push.SEUUSUARIO.workers.dev'
+const VAPID_PUBLIC_KEY = ''; // chave pública gerada com: npx web-push generate-vapid-keys
+
+let pushSyncTimer = null;
+function schedulePushSync() {
+    clearTimeout(pushSyncTimer);
+    pushSyncTimer = setTimeout(syncPushSchedule, 800);
+}
+
+function urlBase64ToUint8Array(b64) {
+    const padding = '='.repeat((4 - (b64.length % 4)) % 4);
+    const raw = atob((b64 + padding).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+
+async function syncPushSchedule() {
+    if (!PUSH_SERVER_URL || !VAPID_PUBLIC_KEY) return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+        }
+        // Guarda a URL do servidor para o Service Worker (cache não apagado nas atualizações)
+        const cfg = await caches.open('ht-config');
+        await cfg.put('/__push_server', new Response(PUSH_SERVER_URL));
+
+        const nowD = new Date();
+        const ds = formatDate(nowD);
+        const reminders = state.habits
+            .filter(h => h.reminderEnabled && h.reminderTime)
+            .map(h => ({ id: h.id, name: h.name, time: h.reminderTime, days: h.activeDays }));
+        const doneIds = state.habits.filter(h => h.records && h.records[ds]).map(h => h.id);
+
+        await fetch(`${PUSH_SERVER_URL}/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                endpoint: sub.endpoint,
+                tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                reminders,
+                done: { date: ds, ids: doneIds }
+            })
+        });
+    } catch (e) {
+        console.warn('Falha ao sincronizar lembretes push:', e);
+    }
 }
 
 // === Tema Light/Dark ===
@@ -190,6 +247,66 @@ window.addEventListener('resize', () => {
 const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const weekDayMap = [1, 2, 3, 4, 5, 6, 0]; // JS Date.getDay(): 0 is Sunday, so map to match labels: M=1, Tu=2, ..., Su=0
 
+// === Congelar Dia (segunda chance para hábitos Sim/Não) ===
+const FREEZE_MIN_STREAK = 7;   // sequência real mínima antes do dia esquecido
+const FREEZE_MAX_DAYS_BACK = 3; // até quantos dias atrás é possível congelar
+
+// Quantos dias ativos CONCLUÍDOS consecutivos existem imediatamente antes de uma data.
+// Um dia congelado anterior interrompe a contagem (é preciso conquistar uma nova sequência).
+function realStreakBefore(habit, date) {
+    let count = 0;
+    for (let i = 1; i < 365; i++) {
+        const d = new Date(date);
+        d.setDate(date.getDate() - i);
+        if (!habit.activeDays.includes(d.getDay())) continue;
+        const ds = formatDate(d);
+        if (habit.records[ds]) {
+            count++;
+        } else {
+            break; // faltou ou foi congelado
+        }
+    }
+    return count;
+}
+
+function canFreezeDay(habit, dateStr) {
+    if (!habit || habit.type === 'tempo') return false;
+    if (dateStr >= formatDate(new Date())) return false;
+    const d = new Date(dateStr + 'T12:00:00');
+    const nowD = new Date();
+    nowD.setHours(12, 0, 0, 0);
+    const diffDays = Math.round((nowD - d) / 86400000);
+    if (diffDays < 1 || diffDays > FREEZE_MAX_DAYS_BACK) return false;
+    if (!habit.activeDays.includes(d.getDay())) return false;
+    if (habit.records[dateStr]) return false;
+    if (habit.frozen && habit.frozen[dateStr]) return false;
+    // Todos os dias ativos entre o dia esquecido e hoje precisam estar cobertos
+    // (concluídos ou congelados) para não esconder uma quebra de sequência real
+    for (let i = 1; i < diffDays; i++) {
+        const m = new Date(d);
+        m.setDate(d.getDate() + i);
+        if (!habit.activeDays.includes(m.getDay())) continue;
+        const ms = formatDate(m);
+        if (!habit.records[ms] && !(habit.frozen && habit.frozen[ms])) return false;
+    }
+    return realStreakBefore(habit, d) >= FREEZE_MIN_STREAK;
+}
+
+function freezeDay(habitId, dateStr) {
+    const habit = state.habits.find(h => h.id === habitId);
+    if (!canFreezeDay(habit, dateStr)) return;
+    const [, m, d] = dateStr.split('-');
+    customConfirm(`Congelar o dia ${d}/${m}? Sua sequência será mantida, mas você precisará de ${FREEZE_MIN_STREAK} dias seguidos para usar outro congelamento.`, (ok) => {
+        if (!ok) return;
+        if (!habit.frozen) habit.frozen = {};
+        habit.frozen[dateStr] = true;
+        saveState();
+        renderViews();
+        triggerHaptic(true);
+        showAppToast('Dia congelado! Sequência preservada ❄️', 'fa-snowflake');
+    });
+}
+
 function calculateStreak(habit) {
     let streak = 0;
     // Checar até 365 dias para trás
@@ -201,6 +318,7 @@ function calculateStreak(habit) {
 
         const isActiveDay = habit.activeDays.includes(jsDay);
         const isCompleted = habit.records[dateStr];
+        const isFrozen = Boolean(habit.frozen && habit.frozen[dateStr]);
 
         if (isActiveDay) {
             if (i === 0) { // Hoje
@@ -211,6 +329,8 @@ function calculateStreak(habit) {
             } else {
                 if (isCompleted) {
                     streak++;
+                } else if (isFrozen) {
+                    continue; // Dia congelado: mantém a sequência sem somar
                 } else {
                     break; // Faltou um dia ativo passado, quebrou a sequência
                 }
@@ -275,12 +395,19 @@ function renderWeeklyView() {
                 disabledAttr = 'disabled';
                 innerHtml = '<div class="blocked-line"></div>';
             } else {
+                const isFrozen = Boolean(habit.frozen && habit.frozen[dateStr]);
                 if (isCompleted) {
                     boxClasses += ' completed';
                     innerHtml = '<i class="fa-solid fa-check"></i>';
+                } else if (isFrozen) {
+                    boxClasses += ' frozen';
+                    innerHtml = '<i class="fa-solid fa-snowflake"></i>';
+                } else if (!isToday && canFreezeDay(habit, dateStr)) {
+                    boxClasses += ' freezable';
+                    innerHtml = '<i class="fa-regular fa-snowflake"></i>';
                 }
-                // Só o hoje é clicável para marcar/desmarcar
-                if (!isToday) {
+                // Só o hoje é clicável para marcar/desmarcar (e dias esquecidos congeláveis)
+                if (!isToday && !boxClasses.includes('freezable')) {
                     boxClasses += ' disabled';
                     disabledAttr = 'disabled';
                 }
@@ -344,6 +471,10 @@ function renderWeeklyView() {
             const dateStr = el.getAttribute('data-date');
 
             const habit = state.habits.find(h => h.id === habitId);
+            if (habit && dateStr !== todayStr) {
+                freezeDay(habitId, dateStr);
+                return;
+            }
             if (habit) {
                 if (habit.type === 'tempo') {
                     // Hábitos de foco: o usuário pode fazer múltiplas sessões por dia
@@ -848,14 +979,24 @@ function renderMonthlyView() {
                     
                 let color = 'rgba(255,255,255,0.05)';
                 let extraClass = '';
+                let inner = d;
+                let dataAttr = '';
                 if (!isActiveDay) {
                     color = 'rgba(0,0,0,0.3)';
                 } else if (isCompleted) {
                     color = habit.color;
                     extraClass = 'completed';
+                } else if (habit.frozen && habit.frozen[dateStr]) {
+                    color = '#38bdf8';
+                    extraClass = 'frozen';
+                    inner = '<i class="fa-solid fa-snowflake" style="font-size:0.7rem;"></i>';
+                } else if (canFreezeDay(habit, dateStr)) {
+                    extraClass = 'freezable';
+                    inner = '<i class="fa-regular fa-snowflake" style="font-size:0.7rem;"></i>';
+                    dataAttr = `data-freeze-id="${habit.id}" data-freeze-date="${dateStr}"`;
                 }
                     
-                html += `<div class="cal-box ${extraClass}" style="background-color: ${color};" title="${dateStr}">${d}</div>`;
+                html += `<div class="cal-box ${extraClass}" style="background-color: ${color};" title="${dateStr}" ${dataAttr}>${inner}</div>`;
             }
                 
             html += `</div></div>`;
@@ -881,6 +1022,12 @@ function renderMonthlyView() {
         }
 
         container.appendChild(card);
+    });
+
+    document.querySelectorAll('#monthly-habit-list .cal-box.freezable').forEach(box => {
+        box.addEventListener('click', () => {
+            freezeDay(box.getAttribute('data-freeze-id'), box.getAttribute('data-freeze-date'));
+        });
     });
 
     // Event listener para alternar submenus Dia, Semana, Mês, Ano
@@ -1292,6 +1439,20 @@ function openModal(habitId = null) {
     modal.classList.remove('hidden');
 }
 
+// Evita disparo imediato se o horário já passou hoje ao salvar; e limita o "forçar hoje" ao dia atual
+function markReminderPassedToday(habit) {
+    if (!habit) return;
+    const now = new Date();
+    habit.forceAlarmDate = formatDate(now);
+    if (habit.reminderEnabled && habit.reminderTime) {
+        const [h, m] = habit.reminderTime.split(':').map(Number);
+        if (now.getHours() * 60 + now.getMinutes() > h * 60 + m) {
+            habit.lastNotifiedKey = `${formatDate(now)}_${habit.reminderTime}`;
+            habit.lastNotified = formatDate(now);
+        }
+    }
+}
+
 habitForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -1330,6 +1491,7 @@ habitForm.addEventListener('submit', async (e) => {
         delete state.habits[existingIndex].lastNotified;
         delete state.habits[existingIndex].lastNotifiedKey;
         delete state.habits[existingIndex].snoozedUntil;
+        markReminderPassedToday(state.habits[existingIndex]);
     } else {
         state.habits.push({
             id,
@@ -1345,6 +1507,7 @@ habitForm.addEventListener('submit', async (e) => {
             totalFocusTime: 0,
             forceAlarmToday: reminderEnabled
         });
+        markReminderPassedToday(state.habits[state.habits.length - 1]);
     }
 
     saveState();
@@ -1767,6 +1930,7 @@ let timerInterval;
 let totalTimerSeconds = parseInt(timerInput.value) * 60;
 let timeLeft = totalTimerSeconds;
 let elapsedSeconds = 0;
+let focusStartTs = 0;
 let isTimerRunning = false;
 let isCancelPeriod = false;
 let cancelTimeout;
@@ -1850,6 +2014,7 @@ function recordFocusSession(minutes, seconds) {
 function resetTimerState() {
     clearInterval(timerInterval);
     clearTimeout(cancelTimeout);
+    focusStartTs = 0;
     isTimerRunning = false;
     isCancelPeriod = false;
     elapsedSeconds = 0;
@@ -1956,50 +2121,66 @@ startTimerBtn.addEventListener('click', () => {
 
         if (isStopwatch) {
             // Cronômetro Crescente (Modo Livre até 180 min = 10800s)
-            timerInterval = setInterval(() => {
-                elapsedSeconds++;
-                updateTimeDisplay();
-
-                if (elapsedSeconds >= 180 * 60) {
-                    // Limite máximo atingido
-                    clearInterval(timerInterval);
-                    recordFocusSession(180, 180 * 60);
-                    showAppNotification('Limite máximo atingido!', {
-                        body: 'Você atingiu o limite máximo de 180 min de foco! Incrível!',
-                        tag: 'focus-max-reached'
-                    });
-                    customAlert('Limite máximo de 180 min de foco atingido! Parabéns pelo seu foco!');
-                    resetTimerState();
-                }
-            }, 1000);
+            // Baseado no relógio real: continua correto mesmo com a tela bloqueada
+            focusStartTs = Date.now();
+            timerInterval = setInterval(tickFocusTimer, 1000);
 
         } else {
             // Contagem Regressiva (Tempo definido na régua)
             totalTimerSeconds = parseInt(timerInput.value) * 60;
             timeLeft = totalTimerSeconds;
-
-            timerInterval = setInterval(() => {
-                if (timeLeft > 0) {
-                    timeLeft--;
-                    updateTimeDisplay();
-                } else {
-                    clearInterval(timerInterval);
-                    const chosenMins = parseInt(timerInput.value) || 25;
-                    recordFocusSession(chosenMins, chosenMins * 60);
-
-                    showAppNotification('Tempo de foco concluído!', {
-                        body: `Você manteve o foco por ${chosenMins} min! Hora de uma pequena pausa.`,
-                        tag: 'focus-completed'
-                    });
-                    if (!('Notification' in window) || Notification.permission !== 'granted') {
-                        customAlert(`Tempo de foco concluído! Você manteve o foco por ${chosenMins} min.`);
-                    }
-
-                    resetTimerState();
-                }
-            }, 1000);
+            focusStartTs = Date.now();
+            timerInterval = setInterval(tickFocusTimer, 1000);
         }
     }
+});
+
+// Atualiza o temporizador a partir do relógio real (não conta ticks do setInterval,
+// que são pausados pelo navegador quando a tela do celular é bloqueada)
+function tickFocusTimer() {
+    if (!isTimerRunning || !focusStartTs) return;
+    const isStopwatch = parseInt(timerInput.value) === 0;
+    const realElapsed = Math.max(0, Math.floor((Date.now() - focusStartTs) / 1000));
+
+    if (isStopwatch) {
+        elapsedSeconds = Math.min(realElapsed, 180 * 60);
+        updateTimeDisplay();
+
+        if (realElapsed >= 180 * 60) {
+            clearInterval(timerInterval);
+            recordFocusSession(180, 180 * 60);
+            showAppNotification('Limite máximo atingido!', {
+                body: 'Você atingiu o limite máximo de 180 min de foco! Incrível!',
+                tag: 'focus-max-reached'
+            });
+            customAlert('Limite máximo de 180 min de foco atingido! Parabéns pelo seu foco!');
+            resetTimerState();
+        }
+    } else {
+        elapsedSeconds = realElapsed;
+        timeLeft = Math.max(0, totalTimerSeconds - realElapsed);
+        updateTimeDisplay();
+
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            const chosenMins = parseInt(timerInput.value) || 25;
+            recordFocusSession(chosenMins, chosenMins * 60);
+
+            showAppNotification('Tempo de foco concluído!', {
+                body: `Você manteve o foco por ${chosenMins} min! Hora de uma pequena pausa.`,
+                tag: 'focus-completed'
+            });
+            if (!('Notification' in window) || Notification.permission !== 'granted') {
+                customAlert(`Tempo de foco concluído! Você manteve o foco por ${chosenMins} min.`);
+            }
+
+            resetTimerState();
+        }
+    }
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') tickFocusTimer();
 });
 
 // Inicialização
@@ -2016,6 +2197,7 @@ function initApp() {
     switchTab(0, false);
     setupBackupHandlers();
     checkUrlAlarmParams();
+    syncPushSchedule();
 }
 
 if (document.readyState === 'loading') {
@@ -2489,6 +2671,12 @@ function checkAlarms() {
     state.habits.forEach(habit => {
         if (!habit.reminderEnabled) return;
 
+        // "Forçar hoje" só vale no dia em que o hábito foi salvo
+        if (habit.forceAlarmToday && habit.forceAlarmDate !== todayDateStr) {
+            delete habit.forceAlarmToday;
+            changed = true;
+        }
+
         // Verificar se é dia ativo e não foi completado hoje (permitir se forceAlarmToday estiver ativo para teste)
         const isDayActive = habit.activeDays && habit.activeDays.includes(todayJsDay);
         const isAlreadyDone = Boolean(habit.records && habit.records[todayDateStr]);
@@ -2508,7 +2696,9 @@ function checkAlarms() {
             const [rHr, rMin] = habit.reminderTime.split(':').map(Number);
             const reminderMinutes = rHr * 60 + rMin;
             const isExactTime = habit.reminderTime === timeStr;
-            const isRecentWindow = (currentMinutesOfDay >= reminderMinutes && currentMinutesOfDay <= reminderMinutes + 2);
+            // Janela de recuperação: se o app estava fechado/suspenso na hora exata,
+            // dispara assim que for aberto, até o fim do dia
+            const isRecentWindow = currentMinutesOfDay >= reminderMinutes;
             const alarmKey = `${todayDateStr}_${habit.reminderTime}`;
 
             if ((isExactTime || isRecentWindow) && habit.lastNotifiedKey !== alarmKey) {
@@ -2545,9 +2735,21 @@ function checkAlarms() {
 setTimeout(checkAlarms, 1000);
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
+        // Se o app ficou aberto/em memória durante a virada do dia, recarrega para atualizar "hoje"
+        if (formatDate(new Date()) !== todayStr) {
+            window.location.reload();
+            return;
+        }
         checkAlarms();
     }
 });
+
+// Dia virou com o app aberto em primeiro plano
+setInterval(() => {
+    if (formatDate(new Date()) !== todayStr && !isTimerRunning) {
+        window.location.reload();
+    }
+}, 60000);
 
 // Suporte a mensagens do Service Worker e parâmetros na URL
 if ('serviceWorker' in navigator) {
