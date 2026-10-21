@@ -22,6 +22,7 @@ function loadState() {
     const saved = localStorage.getItem('habitTickStateV2');
     if (saved) {
         state = JSON.parse(saved);
+        if (!Array.isArray(state.generalFocus)) state.generalFocus = [];
     } else {
         // Mock data inicial se estiver vazio
         state.habits = [
@@ -722,6 +723,49 @@ function renderMonthlyView() {
     } else {
         nextBtn.disabled = false;
         nextBtn.style.opacity = '1';
+    }
+
+    // === CARD DE FOCO GERAL (tempo sem celular, sem hábito vinculado) ===
+    {
+        const fmt = (total) => {
+            const h = Math.floor(total / 60);
+            const m = total % 60;
+            if (h === 0) return `${m} min`;
+            return m ? `${h}h ${m}min` : `${h}h`;
+        };
+        const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}-`;
+        const sessions = (state.generalFocus || []).filter(s => s.date.startsWith(monthPrefix));
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const perDay = Array(daysInMonth).fill(0);
+        sessions.forEach(s => { perDay[parseInt(s.date.slice(8, 10), 10) - 1] += s.minutes; });
+        const totalMins = perDay.reduce((a, b) => a + b, 0);
+        const activeDays = perDay.filter(m => m > 0).length;
+        const bestDay = Math.max(0, ...perDay);
+        const maxBar = Math.max(30, bestDay);
+        const barsHtml = perDay.map((m, i) => {
+            const h = m > 0 ? Math.max(8, Math.round((m / maxBar) * 100)) : 0;
+            return `<div title="Dia ${i + 1}: ${m} min" style="flex:1; display:flex; align-items:flex-end; height:100%;"><div style="width:100%; height:${h}%; min-height:${m > 0 ? 3 : 1}px; border-radius:2px; background:${m > 0 ? 'var(--accent-green)' : 'rgba(255,255,255,0.08)'};"></div></div>`;
+        }).join('');
+        const gCard = document.createElement('div');
+        gCard.className = 'habit-card focus-analytics-card';
+        gCard.style.setProperty('--habit-color', '#34d399');
+        gCard.innerHTML = `
+            <div class="habit-info" style="margin-bottom: 12px;">
+                <div class="habit-title" style="display:flex; align-items:center; gap:8px; font-weight:600;">
+                    <i class="fa-solid fa-mobile-screen-button" style="color: var(--accent-green);"></i>
+                    <span>Foco Geral &bull; Longe do celular</span>
+                </div>
+            </div>
+            <div class="focus-chart-summary">
+                <span>Tempo focado no mês</span>
+                <strong>${fmt(totalMins)} <span style="font-size: 0.8rem; font-weight: 500; color: var(--text-secondary);">(${sessions.length} sessões)</span></strong>
+            </div>
+            <div style="display:flex; gap:2px; height:56px; margin:12px 0 6px;">${barsHtml}</div>
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color: var(--text-secondary);">
+                <span>${activeDays} dia${activeDays === 1 ? '' : 's'} com foco</span>
+                <span>Melhor dia: ${fmt(bestDay)}</span>
+            </div>`;
+        container.appendChild(gCard);
     }
 
     state.habits.forEach(habit => {
@@ -2051,6 +2095,17 @@ function recordFocusSession(minutes, seconds) {
             renderViews();
             updateFocusHabitDisplay();
         }
+    } else {
+        if (!Array.isArray(state.generalFocus)) state.generalFocus = [];
+        state.generalFocus.push({
+            id: Date.now().toString(),
+            date: todayStr,
+            minutes: minutes,
+            seconds: seconds,
+            timestamp: Date.now()
+        });
+        saveState();
+        renderViews();
     }
 }
 
