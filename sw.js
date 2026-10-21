@@ -1,4 +1,4 @@
-const CACHE_NAME = 'habit-tick-v21';
+const CACHE_NAME = 'habit-tick-v22';
 const ASSETS = [
     './',
     './index.html',
