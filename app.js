@@ -2794,8 +2794,13 @@ function checkAlarms() {
             const reminderMinutes = rHr * 60 + rMin;
             const isExactTime = habit.reminderTime === timeStr;
             // Janela de recuperação: se o app estava fechado/suspenso na hora exata,
-            // dispara assim que for aberto, até o fim do dia
-            const isRecentWindow = currentMinutesOfDay >= reminderMinutes;
+            // dispara assim que for aberto. Com o push do servidor ativo, o lembrete já
+            // chegou na hora certa (e o app não sabe disso), então a janela é curta para
+            // não repetir o aviso horas depois ao abrir o app. Sem push, vale até o fim do dia.
+            const pushActive = Boolean(PUSH_SERVER_URL && VAPID_PUBLIC_KEY)
+                && 'Notification' in window && Notification.permission === 'granted';
+            const recoveryLimit = pushActive ? reminderMinutes + 10 : 24 * 60;
+            const isRecentWindow = currentMinutesOfDay >= reminderMinutes && currentMinutesOfDay <= recoveryLimit;
             const alarmKey = `${todayDateStr}_${habit.reminderTime}`;
 
             if ((isExactTime || isRecentWindow) && habit.lastNotifiedKey !== alarmKey) {
