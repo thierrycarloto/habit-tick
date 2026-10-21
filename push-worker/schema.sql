@@ -6,5 +6,6 @@ CREATE TABLE IF NOT EXISTS subs (
     done TEXT NOT NULL DEFAULT '{}',
     snoozes TEXT NOT NULL DEFAULT '[]',
     due TEXT NOT NULL DEFAULT '[]',
+    focus TEXT NOT NULL DEFAULT '',
     updated_at INTEGER NOT NULL DEFAULT 0
 );

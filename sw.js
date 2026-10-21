@@ -1,4 +1,4 @@
-﻿const CACHE_NAME = 'habit-tick-v17';
+const CACHE_NAME = 'habit-tick-v19';
 const ASSETS = [
     './',
     './index.html',
@@ -79,6 +79,18 @@ self.addEventListener('push', event => {
                 due = (await res.json()).due || [];
             }
         } catch (e) {}
+
+        const focusDone = due.filter(d => d.kind === 'focus');
+        due = due.filter(d => d.kind !== 'focus');
+        await Promise.all(focusDone.map(f => self.registration.showNotification('Foco conclu\u00eddo! \ud83c\udfaf', {
+            body: 'Parab\u00e9ns! Voc\u00ea ficou ' + f.minutes + ' min em foco' + (f.name ? ' em "' + f.name + '"' : '') + '! \ud83c\udf89',
+            icon: './icon-192.png',
+            badge: './icon-192.png',
+            vibrate: [200, 100, 200],
+            tag: 'focus-completed',
+            renotify: true
+        })));
+        if (focusDone.length && !due.length) return;
 
         // O navegador exige uma notificaÃ§Ã£o visÃ­vel a cada push
         if (!due.length) due = [{ id: null, name: 'seus hÃ¡bitos' }];

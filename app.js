@@ -134,6 +134,36 @@ async function syncPushSchedule() {
     }
 }
 
+// Avisa o servidor do foco em andamento para ele enviar o "Parabéns" mesmo com o app fechado
+async function pushFocusCall(path, extra = {}) {
+    if (!PUSH_SERVER_URL || !VAPID_PUBLIC_KEY) return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (!sub) return;
+        await fetch(`${PUSH_SERVER_URL}${path}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: sub.endpoint, ...extra })
+        });
+    } catch (e) {
+        console.warn('Falha ao avisar servidor sobre o foco:', e);
+    }
+}
+
+function pushFocusStart(minutes) {
+    const habit = window.currentFocusHabitId
+        ? state.habits.find(h => h.id === window.currentFocusHabitId)
+        : null;
+    pushFocusCall('/focus-start', { minutes, name: habit ? habit.name : '' });
+}
+
+function pushFocusCancel() {
+    pushFocusCall('/focus-cancel');
+}
+
 // === Tema Light/Dark ===
 const themeCheckbox = document.getElementById('theme-toggle-checkbox');
 if (themeCheckbox) {
@@ -2011,7 +2041,19 @@ function recordFocusSession(minutes, seconds) {
     }
 }
 
+// Feedback de conclusão: mensagem com minutos e nome do hábito (alerta no app + notificação)
+function notifyFocusCompleted(minutes, tag) {
+    const habit = window.currentFocusHabitId
+        ? state.habits.find(h => h.id === window.currentFocusHabitId)
+        : null;
+    const habitPart = habit ? ` em "${habit.name}"` : '';
+    const message = `Parabéns! Você ficou ${minutes} min em foco${habitPart}! 🎉`;
+    showAppNotification('Foco concluído! 🎯', { body: message, tag });
+    customAlert(message);
+}
+
 function resetTimerState() {
+    pushFocusCancel();
     clearInterval(timerInterval);
     clearTimeout(cancelTimeout);
     focusStartTs = 0;
@@ -2047,11 +2089,7 @@ startTimerBtn.addEventListener('click', () => {
                 const minsFocused = Math.max(1, Math.round(elapsedSeconds / 60));
                 recordFocusSession(minsFocused, elapsedSeconds);
 
-                showAppNotification('Foco concluído!', {
-                    body: `Excelente! Você focou por ${minsFocused} min no modo livre!`,
-                    tag: 'focus-stopwatch-completed'
-                });
-                customAlert(`Parabéns! Você concluiu ${minsFocused} min de foco!`);
+                notifyFocusCompleted(minsFocused, 'focus-stopwatch-completed');
                 resetTimerState();
 
             } else {
@@ -2063,7 +2101,7 @@ startTimerBtn.addEventListener('click', () => {
                     customConfirm(`Deseja salvar os ${elapsedMins} min de foco realizados até agora?`, (save) => {
                         if (save) {
                             recordFocusSession(elapsedMins, elapsedSecs);
-                            customAlert(`Sessão finalizada! ${elapsedMins} min foram registrados.`);
+                            notifyFocusCompleted(elapsedMins, 'focus-partial-completed');
                         }
                         resetTimerState();
                     });
@@ -2131,6 +2169,7 @@ startTimerBtn.addEventListener('click', () => {
             timeLeft = totalTimerSeconds;
             focusStartTs = Date.now();
             timerInterval = setInterval(tickFocusTimer, 1000);
+            pushFocusStart(parseInt(timerInput.value));
         }
     }
 });
@@ -2149,11 +2188,7 @@ function tickFocusTimer() {
         if (realElapsed >= 180 * 60) {
             clearInterval(timerInterval);
             recordFocusSession(180, 180 * 60);
-            showAppNotification('Limite máximo atingido!', {
-                body: 'Você atingiu o limite máximo de 180 min de foco! Incrível!',
-                tag: 'focus-max-reached'
-            });
-            customAlert('Limite máximo de 180 min de foco atingido! Parabéns pelo seu foco!');
+            notifyFocusCompleted(180, 'focus-max-reached');
             resetTimerState();
         }
     } else {
@@ -2166,13 +2201,7 @@ function tickFocusTimer() {
             const chosenMins = parseInt(timerInput.value) || 25;
             recordFocusSession(chosenMins, chosenMins * 60);
 
-            showAppNotification('Tempo de foco concluído!', {
-                body: `Você manteve o foco por ${chosenMins} min! Hora de uma pequena pausa.`,
-                tag: 'focus-completed'
-            });
-            if (!('Notification' in window) || Notification.permission !== 'granted') {
-                customAlert(`Tempo de foco concluído! Você manteve o foco por ${chosenMins} min.`);
-            }
+            notifyFocusCompleted(chosenMins, 'focus-completed');
 
             resetTimerState();
         }

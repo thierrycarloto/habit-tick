@@ -7,6 +7,9 @@ Gratuito no Cloudflare (Workers + D1 + Cron). Precisa do Node.js instalado.
    npx web-push generate-vapid-keys
    ```
    Guarde a **Public Key** e a **Private Key**.
+   
+
+
 
 2. Entrar e criar o banco (dentro desta pasta `push-worker`):
    ```

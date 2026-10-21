@@ -118,6 +118,23 @@ async function handleRequest(request, env) {
         return json({ ok: true });
     }
 
+    // Foco em andamento: o servidor avisa quando o tempo acabar (mesmo com o app fechado)
+    if (url.pathname === '/focus-start') {
+        const minutes = Math.max(1, Math.min(180, Number(body.minutes) || 0));
+        const focus = {
+            endsAt: Date.now() + minutes * 60000,
+            minutes,
+            name: String(body.name || '').slice(0, 80)
+        };
+        await env.DB.prepare('UPDATE subs SET focus = ?2 WHERE id = ?1').bind(id, JSON.stringify(focus)).run();
+        return json({ ok: true });
+    }
+
+    if (url.pathname === '/focus-cancel') {
+        await env.DB.prepare("UPDATE subs SET focus = '' WHERE id = ?1").bind(id).run();
+        return json({ ok: true });
+    }
+
     if (url.pathname === '/unsubscribe') {
         await env.DB.prepare('DELETE FROM subs WHERE id = ?1').bind(id).run();
         return json({ ok: true });
@@ -161,16 +178,30 @@ async function runCron(env) {
             }
         }
 
+        // Foco terminou? (ignora se passou mais de 15 min do fim, ex.: servidor/app sem sincronia)
+        let focus = null, focusChanged = false;
+        try { focus = sub.focus ? JSON.parse(sub.focus) : null; } catch {}
+        if (focus && focus.endsAt <= nowMs) {
+            if (nowMs - focus.endsAt <= 15 * 60000) {
+                newDue.push({ kind: 'focus', minutes: focus.minutes, name: focus.name });
+            }
+            focus = null;
+            focusChanged = true;
+        }
+
         if (!newDue.length) {
             if (remainingSnoozes.length !== snoozes.length) {
                 await env.DB.prepare('UPDATE subs SET snoozes = ?2 WHERE id = ?1').bind(sub.id, JSON.stringify(remainingSnoozes)).run();
+            }
+            if (focusChanged) {
+                await env.DB.prepare("UPDATE subs SET focus = '' WHERE id = ?1").bind(sub.id).run();
             }
             continue;
         }
 
         const due = [...pending, ...newDue];
-        await env.DB.prepare('UPDATE subs SET due = ?2, snoozes = ?3 WHERE id = ?1')
-            .bind(sub.id, JSON.stringify(due), JSON.stringify(remainingSnoozes)).run();
+        await env.DB.prepare('UPDATE subs SET due = ?2, snoozes = ?3, focus = ?4 WHERE id = ?1')
+            .bind(sub.id, JSON.stringify(due), JSON.stringify(remainingSnoozes), focus ? JSON.stringify(focus) : '').run();
 
         try {
             const res = await sendPush(env, sub.endpoint);
