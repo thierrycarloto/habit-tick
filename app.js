@@ -729,6 +729,13 @@ function renderMonthlyView() {
         card.className = 'habit-card';
         card.style.setProperty('--habit-color', habit.color);
 
+        function formatHoursMinutes(total) {
+            const h = Math.floor(total / 60);
+            const m = total % 60;
+            if (h === 0) return `${m} min`;
+            return m ? `${h}h ${m}min` : `${h}h`;
+        }
+
         if (habit.type === 'tempo') {
             // === CARD DE HÁBITO DE FOCO (SUBMENU DIA, SEMANA, MÊS, ANO COM GRÁFICOS) ===
             const period = focusChartPeriod[habit.id] || 'semana';
@@ -894,17 +901,18 @@ function renderMonthlyView() {
                     if (dayMins > 0) {
                         boxClass += ' completed';
                         boxStyle = `background-color: ${habit.color};`;
-                        innerContent = `<span style="font-size: 0.7rem; font-weight: 700;">${dayMins}m</span>`;
+                        const boxLabel = dayMins >= 60 ? `${Math.floor(dayMins / 60)}h${dayMins % 60 ? String(dayMins % 60).padStart(2, '0') : ''}` : `${dayMins}m`;
+                        innerContent = `<span style="font-size: 0.65rem; font-weight: 700;">${boxLabel}</span>`;
                     }
 
-                    calGridHtml += `<div class="${boxClass}" style="${boxStyle}" title="${dStr}: ${dayMins} min">${innerContent}</div>`;
+                    calGridHtml += `<div class="${boxClass}" style="${boxStyle}" title="${dStr}: ${formatHoursMinutes(dayMins)}">${innerContent}</div>`;
                 }
                 calGridHtml += `</div>`;
 
                 chartBodyHtml = `
                     <div class="focus-chart-summary">
                         <span>Total em ${monthName}</span>
-                        <strong>${monthTotal} min <span style="font-size: 0.8rem; font-weight: 500; color: var(--text-secondary);">(${Math.floor(monthTotal / 60)}h ${monthTotal % 60}m &bull; ${monthSessions.length} sessões)</span></strong>
+                        <strong>${formatHoursMinutes(monthTotal)} <span style="font-size: 0.8rem; font-weight: 500; color: var(--text-secondary);">(${monthSessions.length} sessões)</span></strong>
                     </div>
                     <div class="month-block" style="padding-top: 0;">
                         ${calGridHtml}
