@@ -586,7 +586,7 @@ function setupHabitDragAndDrop(container) {
             if (e.touches.length !== 1) return;
             isDraggingHabit = true;
             let touchStartY = e.touches[0].clientY;
-            
+
             card.classList.add('is-dragging');
             card.style.transition = 'none';
             triggerHaptic(true);
@@ -753,7 +753,7 @@ function renderMonthlyView() {
             <div class="habit-info" style="margin-bottom: 12px;">
                 <div class="habit-title" style="display:flex; align-items:center; gap:8px; font-weight:600;">
                     <i class="fa-solid fa-mobile-screen-button" style="color: var(--accent-green);"></i>
-                    <span>Foco Geral &bull; Longe do celular</span>
+                    <span>Foco Geral</span>
                 </div>
             </div>
             <div class="focus-chart-summary">
@@ -1035,7 +1035,7 @@ function renderMonthlyView() {
 
             const firstDay = new Date(year, month, 1).getDay();
             const daysInMonth = new Date(year, month + 1, 0).getDate();
-                
+
             html += `<div class="month-block" style="padding-top: 0;">
                         <div class="calendar-grid">
                             <div class="cal-day-header">D</div>
@@ -1045,20 +1045,20 @@ function renderMonthlyView() {
                             <div class="cal-day-header">Q</div>
                             <div class="cal-day-header">S</div>
                             <div class="cal-day-header">S</div>`;
-                                
+
             for (let i = 0; i < firstDay; i++) {
                 html += `<div class="cal-box empty"></div>`;
             }
-                
+
             for (let d = 1; d <= daysInMonth; d++) {
                 const currentD = new Date(year, month, d);
                 const dateStr = formatDate(currentD);
                 const jsDay = currentD.getDay();
                 const isActiveDay = habit.activeDays.includes(jsDay);
                 const isCompleted = habit.records[dateStr];
-                    
+
                 if (isCompleted) doneTotal++;
-                    
+
                 let color = 'rgba(255,255,255,0.05)';
                 let extraClass = '';
                 let inner = d;
@@ -1078,10 +1078,10 @@ function renderMonthlyView() {
                     inner = '<i class="fa-regular fa-snowflake" style="font-size:0.7rem;"></i>';
                     dataAttr = `data-freeze-id="${habit.id}" data-freeze-date="${dateStr}"`;
                 }
-                    
+
                 html += `<div class="cal-box ${extraClass}" style="background-color: ${color};" title="${dateStr}" ${dataAttr}>${inner}</div>`;
             }
-                
+
             html += `</div></div>`;
 
             const streakCount = calculateStreak(habit);
@@ -1263,7 +1263,7 @@ function initCustomTimePickerEvents() {
             trackEl.style.transition = 'none';
             try {
                 wheelEl.setPointerCapture(e.pointerId);
-            } catch (err) {}
+            } catch (err) { }
             triggerHaptic();
         };
 
@@ -1278,7 +1278,7 @@ function initCustomTimePickerEvents() {
                 startY -= STEP_HEIGHT;
                 deltaY = currentY - startY;
                 triggerHaptic();
-            } 
+            }
             // Se arrastou para baixo o suficiente (número anterior)
             else if (deltaY >= STEP_HEIGHT) {
                 onStep(-1);
@@ -1296,7 +1296,7 @@ function initCustomTimePickerEvents() {
             isDragging = false;
             try {
                 wheelEl.releasePointerCapture(e.pointerId);
-            } catch (err) {}
+            } catch (err) { }
 
             // Retorna suavemente para alinhar perfeitamente com a barra verde central fixa
             trackEl.style.transition = 'transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)';
@@ -1740,14 +1740,14 @@ function triggerHaptic(isMajor = false) {
     if ('vibrate' in navigator) {
         try {
             navigator.vibrate(isMajor ? [120] : [85]);
-        } catch (e) {}
+        } catch (e) { }
     }
 
     // 2. iOS Safari Taptic Engine Switch Trigger (dispara Taptic nativo no iPhone)
     try {
         const iosLabel = document.getElementById('ios-haptic-trigger');
         if (iosLabel) iosLabel.click();
-    } catch (e) {}
+    } catch (e) { }
 
     // 3. Ressonância acústica sub-grave e clique tátil no alto-falante
     try {
@@ -1782,7 +1782,7 @@ function triggerHaptic(isMajor = false) {
         gain.connect(audioCtx.destination);
         osc.start(now);
         osc.stop(now + 0.035);
-    } catch (e) {}
+    } catch (e) { }
 }
 
 // === Régua Interativa com Agulha Central Fixa ===
@@ -1898,7 +1898,7 @@ function setupRulerEvents() {
         rulerTrack.style.transition = 'none';
         try {
             rulerViewport.setPointerCapture(e.pointerId);
-        } catch (err) {}
+        } catch (err) { }
         // Aciona vibração imediatamente ao tocar (User Activation essencial no Android)
         triggerHaptic(true);
     };
@@ -1940,7 +1940,7 @@ function setupRulerEvents() {
         isRulerDragging = false;
         try {
             rulerViewport.releasePointerCapture(e.pointerId);
-        } catch (err) {}
+        } catch (err) { }
 
         const W = rulerViewport.offsetWidth || 320;
         const X_c = W / 2;
@@ -2309,26 +2309,26 @@ function customConfirm(message, callback) {
     const msgEl = document.getElementById('custom-dialog-message');
     const cancelBtn = document.getElementById('custom-dialog-cancel-btn');
     const confirmBtn = document.getElementById('custom-dialog-confirm-btn');
-    
+
     msgEl.textContent = message;
     cancelBtn.style.display = 'block';
-    
+
     // Clonar para remover event listeners antigos
     const newConfirm = confirmBtn.cloneNode(true);
     const newCancel = cancelBtn.cloneNode(true);
     confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
     cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
-    
+
     newConfirm.addEventListener('click', () => {
         dialog.classList.add('hidden');
         if (callback) callback(true);
     });
-    
+
     newCancel.addEventListener('click', () => {
         dialog.classList.add('hidden');
         if (callback) callback(false);
     });
-    
+
     dialog.classList.remove('hidden');
 }
 
@@ -2337,18 +2337,18 @@ function customAlert(message) {
     const msgEl = document.getElementById('custom-dialog-message');
     const cancelBtn = document.getElementById('custom-dialog-cancel-btn');
     const confirmBtn = document.getElementById('custom-dialog-confirm-btn');
-    
+
     msgEl.textContent = message;
     cancelBtn.style.display = 'none';
-    
+
     // Clonar para remover event listeners antigos
     const newConfirm = confirmBtn.cloneNode(true);
     confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
-    
+
     newConfirm.addEventListener('click', () => {
         dialog.classList.add('hidden');
     });
-    
+
     dialog.classList.remove('hidden');
 }
 
@@ -2471,7 +2471,7 @@ function playSuccessMelody() {
             osc.start(startTime);
             osc.stop(startTime + duration);
         });
-    } catch (e) {}
+    } catch (e) { }
 }
 
 function updateAlarmLiveClock() {
@@ -2517,7 +2517,7 @@ function stopAlarmSoundAndVibration() {
     if ('vibrate' in navigator) {
         try {
             navigator.vibrate(0);
-        } catch (e) {}
+        } catch (e) { }
     }
 }
 
@@ -2572,9 +2572,9 @@ function triggerAlarmScreen(habit) {
             alarmVibrateLoopInterval = setInterval(() => {
                 try {
                     navigator.vibrate([400, 150, 400, 150, 600]);
-                } catch (e) {}
+                } catch (e) { }
             }, 2600);
-        } catch (e) {}
+        } catch (e) { }
     }
 
     alarmModal.classList.remove('hidden');
@@ -2695,7 +2695,7 @@ function initAlarmScreenEvents() {
         habitCircle.style.transition = 'none';
         try {
             habitCircle.setPointerCapture(e.pointerId);
-        } catch (err) {}
+        } catch (err) { }
         triggerHaptic(true);
     };
 
@@ -2725,7 +2725,7 @@ function initAlarmScreenEvents() {
         isDragging = false;
         try {
             habitCircle.releasePointerCapture(e.pointerId);
-        } catch (err) {}
+        } catch (err) { }
 
         habitCircle.classList.remove('is-dragging');
 
@@ -2890,7 +2890,7 @@ function checkUrlAlarmParams() {
             }
             window.history.replaceState({}, document.title, window.location.pathname);
         }
-    } catch (e) {}
+    } catch (e) { }
 }
 
 // === Transição Gradual ao Deslizar Entre Abas (Estilo Celulares Samsung) ===
