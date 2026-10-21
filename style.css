@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --bg-color: #0b0b0d;
     --card-bg: #151518;
     --text-primary: #ffffff;
@@ -744,6 +744,19 @@ body.focus-mode-active #tab-foco .focus-body {
     background-color: transparent !important;
 }
 
+.timer-sublabel:empty { display: none; }
+
+body.light-mode .cal-box:not(.completed):not(.empty):not(.frozen):not(.freezable):not(.inactive) {
+    background-color: #e4e4e7 !important;
+    color: #3f3f46 !important;
+    font-weight: 600;
+}
+
+body.light-mode .cal-box.inactive {
+    background-color: #f0f0f2 !important;
+    color: #a1a1aa !important;
+}
+
 .cal-box.completed {
     color: #fff;
     font-weight: 700;
@@ -967,6 +980,8 @@ body.light-mode #timer-slider-modal .modal-content {
     padding: 16px;
     border-radius: 16px;
     border: 1px solid var(--box-border);
+    max-height: 190px;
+    overflow-y: auto;
 }
 
 .picker-item {
@@ -1240,6 +1255,8 @@ body.light-mode .habit-name-input {
 
 body.light-mode .picker-grid {
     background-color: #fafafa;
+    max-height: 190px;
+    overflow-y: auto;
 }
 
 body.light-mode .days-selector label {

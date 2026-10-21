@@ -1012,6 +1012,7 @@ function renderMonthlyView() {
                 let inner = d;
                 let dataAttr = '';
                 if (!isActiveDay) {
+                    extraClass = 'inactive';
                     color = 'rgba(0,0,0,0.3)';
                 } else if (isCompleted) {
                     color = habit.color;
@@ -1358,7 +1359,11 @@ function initDaysSelectorEvents() {
 }
 
 // Modal UI Logic
-const ICONS = ['fa-check', 'fa-book-open', 'fa-dumbbell', 'fa-person-running', 'fa-burger', 'fa-music', 'fa-moon', 'fa-droplet', 'fa-lightbulb'];
+const ICONS = ['fa-check', 'fa-book-open', 'fa-dumbbell', 'fa-person-running', 'fa-burger', 'fa-music', 'fa-moon', 'fa-droplet', 'fa-lightbulb',
+    'fa-heart', 'fa-brain', 'fa-bed', 'fa-bicycle', 'fa-person-swimming', 'fa-apple-whole', 'fa-carrot', 'fa-mug-hot', 'fa-pills', 'fa-tooth',
+    'fa-pen', 'fa-graduation-cap', 'fa-code', 'fa-laptop', 'fa-language', 'fa-guitar', 'fa-palette', 'fa-camera', 'fa-broom', 'fa-shower',
+    'fa-dog', 'fa-leaf', 'fa-sun', 'fa-star', 'fa-fire', 'fa-bullseye', 'fa-wallet', 'fa-piggy-bank', 'fa-phone', 'fa-people-group',
+    'fa-spa', 'fa-ban-smoking', 'fa-utensils', 'fa-seedling', 'fa-clock', 'fa-list-check', 'fa-gamepad', 'fa-hands-praying', 'fa-walking'];
 const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#34d399', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'];
 
 let selectedIcon = 'fa-check';
@@ -2000,7 +2005,7 @@ function updateTimeDisplay() {
         // MODO CONTAGEM REGRESSIVA (TEMPO FIXO ESCOLHIDO NA RÉGUA)
         timerCircle.classList.remove('stopwatch-running');
         const chosenMins = parseInt(timerInput.value) || 25;
-        timerSublabel.textContent = `${chosenMins} min`;
+        timerSublabel.textContent = '';
         focusDescText.textContent = '';
 
         const minutes = Math.floor(timeLeft / 60);
