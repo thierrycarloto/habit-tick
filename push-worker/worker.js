@@ -104,8 +104,9 @@ async function handleRequest(request, env) {
 
     if (url.pathname === '/due') {
         const row = await env.DB.prepare('SELECT due FROM subs WHERE id = ?1').bind(id).first();
-        const due = row && row.due ? JSON.parse(row.due) : [];
-        if (due.length) await env.DB.prepare("UPDATE subs SET due = '[]' WHERE id = ?1").bind(id).run();
+        const all = row && row.due ? JSON.parse(row.due) : [];
+        const due = freshDue(all, Date.now());
+        if (all.length) await env.DB.prepare("UPDATE subs SET due = '[]' WHERE id = ?1").bind(id).run();
         return json({ due });
     }
 
@@ -143,6 +144,20 @@ async function handleRequest(request, env) {
     return json({ error: 'not found' }, 404);
 }
 
+// Lembretes pendentes só valem por alguns minutos; evita avisar hábito antigo fora de hora
+// (ex.: push perdido) junto com o lembrete atual. Também remove duplicados.
+const DUE_MAX_AGE_MS = 3 * 60000;
+function freshDue(list, nowMs) {
+    const seen = new Set();
+    return list.filter(d => {
+        if (d.at && nowMs - d.at > DUE_MAX_AGE_MS) return false;
+        const key = d.kind ? `${d.kind}` : d.id;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
 // ---- Cron: roda a cada minuto ----
 async function runCron(env) {
     const { results } = await env.DB.prepare('SELECT * FROM subs').all();
@@ -163,7 +178,7 @@ async function runCron(env) {
         for (const r of reminders) {
             if (!r.days || !r.days.includes(lp.day)) continue;
             if (doneToday.has(r.id)) continue;
-            if (r.time === lp.time) newDue.push({ id: r.id, name: r.name });
+            if (r.time === lp.time) newDue.push({ id: r.id, name: r.name, at: nowMs });
         }
 
         const remainingSnoozes = [];
@@ -171,7 +186,7 @@ async function runCron(env) {
             if (s.at <= nowMs) {
                 const r = byId[s.habitId];
                 if (r && !doneToday.has(r.id) && !newDue.some(d => d.id === r.id)) {
-                    newDue.push({ id: r.id, name: r.name });
+                    newDue.push({ id: r.id, name: r.name, at: nowMs });
                 }
             } else {
                 remainingSnoozes.push(s);
@@ -183,7 +198,7 @@ async function runCron(env) {
         try { focus = sub.focus ? JSON.parse(sub.focus) : null; } catch {}
         if (focus && focus.endsAt <= nowMs) {
             if (nowMs - focus.endsAt <= 15 * 60000) {
-                newDue.push({ kind: 'focus', minutes: focus.minutes, name: focus.name });
+                newDue.push({ kind: 'focus', minutes: focus.minutes, name: focus.name, at: nowMs });
             }
             focus = null;
             focusChanged = true;
@@ -199,7 +214,7 @@ async function runCron(env) {
             continue;
         }
 
-        const due = [...pending, ...newDue];
+        const due = freshDue([...pending, ...newDue], nowMs);
         await env.DB.prepare('UPDATE subs SET due = ?2, snoozes = ?3, focus = ?4 WHERE id = ?1')
             .bind(sub.id, JSON.stringify(due), JSON.stringify(remainingSnoozes), focus ? JSON.stringify(focus) : '').run();
 

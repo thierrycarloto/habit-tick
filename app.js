@@ -2799,7 +2799,7 @@ function checkAlarms() {
             // não repetir o aviso horas depois ao abrir o app. Sem push, vale até o fim do dia.
             const pushActive = Boolean(PUSH_SERVER_URL && VAPID_PUBLIC_KEY)
                 && 'Notification' in window && Notification.permission === 'granted';
-            const recoveryLimit = pushActive ? reminderMinutes + 10 : 24 * 60;
+            const recoveryLimit = pushActive ? reminderMinutes + 2 : 24 * 60;
             const isRecentWindow = currentMinutesOfDay >= reminderMinutes && currentMinutesOfDay <= recoveryLimit;
             const alarmKey = `${todayDateStr}_${habit.reminderTime}`;
 
@@ -2820,7 +2820,7 @@ function checkAlarms() {
             if ('Notification' in window && Notification.permission === 'granted') {
                 showAppNotification(`Lembrete: ${habit.name}`, {
                     body: `Hora de cumprir sua meta: ${habit.name}! Toque para ver o alarme.`,
-                    tag: `reminder-${habit.id}-${todayDateStr}-${habit.reminderTime || ''}`,
+                    tag: `reminder-${habit.id}`, // mesma tag do push do servidor: evita notificação duplicada
                     data: { habitId: habit.id },
                     actions: [
                         { action: 'done', title: '✓ Marcar Concluído' },

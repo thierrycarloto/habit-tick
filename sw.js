@@ -1,4 +1,4 @@
-const CACHE_NAME = 'habit-tick-v24';
+const CACHE_NAME = 'habit-tick-v25';
 const ASSETS = [
     './',
     './index.html',
@@ -81,7 +81,7 @@ self.addEventListener('push', event => {
         } catch (e) {}
 
         const focusDone = due.filter(d => d.kind === 'focus');
-        due = due.filter(d => d.kind !== 'focus');
+        due = due.filter((d, i, arr) => d.kind !== 'focus' && arr.findIndex(x => x.id === d.id) === i);
         await Promise.all(focusDone.map(f => self.registration.showNotification('Foco conclu\u00eddo! \ud83c\udfaf', {
             body: 'Parab\u00e9ns! Voc\u00ea ficou ' + f.minutes + ' min em foco' + (f.name ? ' em "' + f.name + '"' : '') + '! \ud83c\udf89',
             icon: './icon-192.png',
