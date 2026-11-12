@@ -1,4 +1,4 @@
-const CACHE_NAME = 'habit-tick-v25';
+const CACHE_NAME = 'habit-tick-v26';
 const ASSETS = [
     './',
     './index.html',
@@ -66,48 +66,72 @@ async function getPushServer() {
 
 self.addEventListener('push', event => {
     event.waitUntil((async () => {
-        let due = [];
-        try {
-            const server = await getPushServer();
-            const sub = await self.registration.pushManager.getSubscription();
-            if (server && sub) {
-                const res = await fetch(`${server}/due`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ endpoint: sub.endpoint })
-                });
-                due = (await res.json()).due || [];
-            }
-        } catch (e) {}
+        // 1) Push com conteúdo (servidor novo): os avisos vêm dentro do próprio push
+        let due = null;
+        if (event.data) {
+            try {
+                const payload = event.data.json();
+                if (payload && Array.isArray(payload.due)) due = payload.due;
+            } catch (e) {}
+        }
+
+        // 2) Push vazio (modo antigo): consulta o servidor
+        if (due === null) {
+            due = [];
+            try {
+                const server = await getPushServer();
+                const sub = await self.registration.pushManager.getSubscription();
+                if (server && sub) {
+                    const res = await fetch(`${server}/due`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ endpoint: sub.endpoint })
+                    });
+                    due = (await res.json()).due || [];
+                }
+            } catch (e) {}
+        }
 
         const focusDone = due.filter(d => d.kind === 'focus');
-        due = due.filter((d, i, arr) => d.kind !== 'focus' && arr.findIndex(x => x.id === d.id) === i);
+        due = due.filter((d, i, arr) => d.kind !== 'focus' && d.id && arr.findIndex(x => x.id === d.id) === i);
+
         await Promise.all(focusDone.map(f => self.registration.showNotification('Foco conclu\u00eddo! \ud83c\udfaf', {
-            body: 'Parab\u00e9ns! Voc\u00ea ficou ' + f.minutes + ' min em foco' + (f.name ? ' em "' + f.name + '"' : '') + '! \ud83c\udf89',
+            body: 'Parab\u00e9ns! Voc\u00ea ficou ' + f.minutes + ' min em foco' + (f.name ? ' em "' + f.name + '"' : '') + '! \ud83c\udf89 Abra o app para registrar.',
             icon: './icon-192.png',
             badge: './icon-192.png',
             vibrate: [200, 100, 200],
             tag: 'focus-completed',
             renotify: true
         })));
-        if (focusDone.length && !due.length) return;
 
-        // O navegador exige uma notificaÃ§Ã£o visÃ­vel a cada push
-        if (!due.length) due = [{ id: null, name: 'seus hÃ¡bitos' }];
+        if (!due.length) {
+            if (focusDone.length) return;
+            // O navegador exige uma notificação visível a cada push. Se já houver alguma
+            // do app na tela, não cria o aviso genérico (era o lembrete "sem sentido").
+            const open = await self.registration.getNotifications();
+            if (open.length) return;
+            await self.registration.showNotification('Habit Tick', {
+                body: 'Toque para ver seus h\u00e1bitos de hoje.',
+                icon: './icon-192.png',
+                badge: './icon-192.png',
+                tag: 'reminder-geral'
+            });
+            return;
+        }
 
         await Promise.all(due.map(d => self.registration.showNotification(`Lembrete: ${d.name}`, {
-            body: d.id ? `Hora de cumprir sua meta: ${d.name}!` : 'Toque para abrir o Habit Tick.',
+            body: `Hora de cumprir sua meta: ${d.name}!`,
             icon: './icon-192.png',
             badge: './icon-192.png',
             vibrate: [200, 100, 200],
             requireInteraction: true,
-            tag: `reminder-${d.id || 'geral'}`,
+            tag: `reminder-${d.id}`,
             renotify: true,
-            data: d.id ? { habitId: d.id } : {},
-            actions: d.id ? [
-                { action: 'done', title: 'âœ“ Marcar ConcluÃ­do' },
-                { action: 'snooze', title: 'â± Adiar 10 min' }
-            ] : []
+            data: { habitId: d.id },
+            actions: [
+                { action: 'done', title: '\u2713 Marcar Conclu\u00eddo' },
+                { action: 'snooze', title: '\u23f1 Adiar 10 min' }
+            ]
         })));
     })());
 });

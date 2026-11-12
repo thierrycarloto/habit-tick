@@ -127,7 +127,9 @@ async function syncPushSchedule() {
                 endpoint: sub.endpoint,
                 tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 reminders,
-                done: { date: ds, ids: doneIds }
+                done: { date: ds, ids: doneIds },
+                // Chaves da inscrição: permitem ao servidor mandar o aviso dentro do push
+                keys: (sub.toJSON() || {}).keys
             })
         });
     } catch (e) {
@@ -154,15 +156,26 @@ async function pushFocusCall(path, extra = {}) {
     }
 }
 
-function pushFocusStart(minutes) {
-    const habit = window.currentFocusHabitId
-        ? state.habits.find(h => h.id === window.currentFocusHabitId)
-        : null;
-    pushFocusCall('/focus-start', { minutes, name: habit ? habit.name : '' });
+// As chamadas vão em fila: sem isso, "cancelar" logo após "iniciar" podia chegar antes
+// ao servidor, que então mandava "Foco concluído" de um foco cancelado.
+let pushFocusQueue = Promise.resolve();
+function queuePushCall(path, extra = {}) {
+    pushFocusQueue = pushFocusQueue.then(() => pushFocusCall(path, extra));
+    return pushFocusQueue;
+}
+
+function pushFocusStart(minutes, habitId, endsAt) {
+    const habit = habitId ? state.habits.find(h => h.id === habitId) : null;
+    queuePushCall('/focus-start', { minutes, endsAt, name: habit ? habit.name : '' });
 }
 
 function pushFocusCancel() {
-    pushFocusCall('/focus-cancel');
+    queuePushCall('/focus-cancel');
+}
+
+// Adiar pelo alarme do app também avisa o servidor (o app pode ser fechado antes do horário)
+function pushSnooze(habitId, minutes) {
+    queuePushCall('/snooze', { habitId, minutes });
 }
 
 // === Tema Light/Dark ===
@@ -1642,9 +1655,29 @@ const focusHabitOptionsList = document.getElementById('focus-habit-options-list'
 const closeFocusHabitSelectBtn = document.getElementById('close-focus-habit-select-btn');
 
 function setFocusHabit(habitId) {
+    // Com um foco em andamento, não troca o hábito (a sessão seria registrada no hábito errado)
+    if (isTimerRunning) {
+        updateFocusHabitDisplay();
+        return;
+    }
     window.currentFocusHabitId = habitId;
     window.currentFocusDateStr = todayStr;
+    try { localStorage.setItem('habitTickLastFocusHabit', habitId || ''); } catch (e) { }
     updateFocusHabitDisplay();
+}
+
+function restoreLastFocusHabit() {
+    try {
+        const saved = localStorage.getItem('habitTickLastFocusHabit');
+        if (saved && state.habits.some(h => h.id === saved && h.type === 'tempo')) {
+            window.currentFocusHabitId = saved;
+            return;
+        }
+        if (saved === null) {
+            const firstTempo = state.habits.find(h => h.type === 'tempo');
+            if (firstTempo) window.currentFocusHabitId = firstTempo.id;
+        }
+    } catch (e) { }
 }
 
 function updateFocusHabitDisplay() {
@@ -2021,6 +2054,7 @@ let focusStartTs = 0;
 let isTimerRunning = false;
 let isCancelPeriod = false;
 let cancelTimeout;
+let activeFocus = null; // { startTs, mins, habitId, date, serverFocus } — também salvo no localStorage
 
 function updateTimeDisplay() {
     const isStopwatch = parseInt(timerInput.value) === 0;
@@ -2075,53 +2109,93 @@ function updateTimeDisplay() {
     }
 }
 
-// Função central para registrar sessão de foco
-function recordFocusSession(minutes, seconds) {
+// Função central para registrar sessão de foco.
+// habitId/dateStr vêm do foco salvo (o app pode ter sido fechado e reaberto em outro dia)
+function recordFocusSession(minutes, seconds, opts = {}) {
     if (minutes <= 0) return;
-    if (window.currentFocusHabitId) {
-        const habit = state.habits.find(h => h.id === window.currentFocusHabitId);
-        if (habit) {
-            if (!Array.isArray(habit.sessions)) habit.sessions = [];
-            habit.sessions.push({
-                id: Date.now().toString(),
-                date: todayStr,
-                minutes: minutes,
-                seconds: seconds,
-                timestamp: Date.now()
-            });
-            habit.records[todayStr] = true;
-            habit.totalFocusTime = (habit.totalFocusTime || 0) + minutes;
-            saveState();
-            renderViews();
-            updateFocusHabitDisplay();
-        }
+    const habitId = opts.habitId !== undefined ? opts.habitId : window.currentFocusHabitId;
+    const dateStr = opts.dateStr || todayStr;
+    const ts = opts.timestamp || Date.now();
+    const habit = habitId ? state.habits.find(h => h.id === habitId) : null;
+    if (habit) {
+        if (!Array.isArray(habit.sessions)) habit.sessions = [];
+        if (!habit.records) habit.records = {};
+        habit.sessions.push({
+            id: ts.toString(),
+            date: dateStr,
+            minutes: minutes,
+            seconds: seconds,
+            timestamp: ts
+        });
+        habit.records[dateStr] = true;
+        habit.totalFocusTime = (habit.totalFocusTime || 0) + minutes;
     } else {
         if (!Array.isArray(state.generalFocus)) state.generalFocus = [];
         state.generalFocus.push({
-            id: Date.now().toString(),
-            date: todayStr,
+            id: ts.toString(),
+            date: dateStr,
             minutes: minutes,
             seconds: seconds,
-            timestamp: Date.now()
+            timestamp: ts
         });
-        saveState();
-        renderViews();
+    }
+    saveState();
+    renderViews();
+    updateFocusHabitDisplay();
+}
+
+// === Foco em andamento salvo no aparelho ===
+// Sem isso, se o sistema fechasse o app (comum em focos longos com a tela bloqueada)
+// ou se o app recarregasse na virada do dia, a sessão era perdida sem registro.
+const ACTIVE_FOCUS_KEY = 'habitTickActiveFocus';
+
+function saveActiveFocus(data) {
+    try { localStorage.setItem(ACTIVE_FOCUS_KEY, JSON.stringify(data)); } catch (e) { }
+}
+
+function loadActiveFocus() {
+    try {
+        const raw = localStorage.getItem(ACTIVE_FOCUS_KEY);
+        const data = raw ? JSON.parse(raw) : null;
+        return data && data.startTs ? data : null;
+    } catch (e) {
+        return null;
     }
 }
 
-// Feedback de conclusão: mensagem com minutos e nome do hábito (alerta no app + notificação)
-function notifyFocusCompleted(minutes, tag) {
-    const habit = window.currentFocusHabitId
-        ? state.habits.find(h => h.id === window.currentFocusHabitId)
-        : null;
+function clearActiveFocus() {
+    try { localStorage.removeItem(ACTIVE_FOCUS_KEY); } catch (e) { }
+}
+
+// Feedback de conclusão: mensagem com minutos e nome do hábito (alerta no app + notificação).
+// system=false quando o app estava fechado/suspenso no fim: o servidor já mandou o aviso.
+const FOCUS_MSG_KEY = 'habitTickFocusMsg';
+function notifyFocusCompleted(minutes, { habitId = window.currentFocusHabitId, system = true } = {}) {
+    const habit = habitId ? state.habits.find(h => h.id === habitId) : null;
     const habitPart = habit ? ` em "${habit.name}"` : '';
     const message = `Parabéns! Você ficou ${minutes} min em foco${habitPart}! 🎉`;
-    showAppNotification('Foco concluído! 🎯', { body: message, tag });
-    customAlert(message);
+    if (system) showAppNotification('Foco concluído! 🎯', { body: message, tag: 'focus-completed' });
+    // Guarda a mensagem até ser vista (o app pode recarregar logo em seguida na virada do dia)
+    try { sessionStorage.setItem(FOCUS_MSG_KEY, message); } catch (e) { }
+    customAlert(message, () => {
+        try { sessionStorage.removeItem(FOCUS_MSG_KEY); } catch (e) { }
+    });
+}
+
+function showPendingFocusMessage() {
+    let message = null;
+    try { message = sessionStorage.getItem(FOCUS_MSG_KEY); } catch (e) { }
+    if (message) {
+        customAlert(message, () => {
+            try { sessionStorage.removeItem(FOCUS_MSG_KEY); } catch (e) { }
+        });
+    }
 }
 
 function resetTimerState() {
-    pushFocusCancel();
+    if (activeFocus && activeFocus.serverFocus) pushFocusCancel();
+    activeFocus = null;
+    clearActiveFocus();
     clearInterval(timerInterval);
     clearTimeout(cancelTimeout);
     focusStartTs = 0;
@@ -2142,6 +2216,29 @@ function resetTimerState() {
         timeLeft = totalTimerSeconds;
     }
     updateTimeDisplay();
+    updateFocusHabitDisplay();
+}
+
+// Conclui o foco salvo: registra no dia em que ele começou e avisa
+function completeActiveFocus(minutes, seconds, endTs) {
+    const af = activeFocus;
+    if (!af) return;
+    clearInterval(timerInterval);
+    const late = Date.now() - endTs > 60000;
+    recordFocusSession(minutes, seconds, { habitId: af.habitId, dateStr: af.date, timestamp: endTs });
+    notifyFocusCompleted(minutes, { habitId: af.habitId, system: !late });
+    resetTimerState();
+}
+
+function setRunningButtonState(isStopwatch) {
+    startTimerBtn.classList.remove('btn-danger', 'btn-finish-focus');
+    if (isStopwatch) {
+        startTimerBtn.textContent = 'Finalizar Foco';
+        startTimerBtn.classList.add('btn-finish-focus');
+    } else {
+        startTimerBtn.textContent = 'Desistir';
+        startTimerBtn.classList.add('btn-danger');
+    }
 }
 
 startTimerBtn.addEventListener('click', () => {
@@ -2149,130 +2246,161 @@ startTimerBtn.addEventListener('click', () => {
 
     if (isTimerRunning) {
         if (isCancelPeriod) {
-            // Cancelar dentro dos 10s iniciais sem registrar
+            // Cancelar dentro dos 5s iniciais sem registrar
+            resetTimerState();
+            return;
+        }
+        const af = activeFocus;
+        if (!af) {
+            resetTimerState();
+            return;
+        }
+        const realElapsed = Math.max(0, Math.floor((Date.now() - focusStartTs) / 1000));
+
+        if (isStopwatch) {
+            // No modo Livre, o botão é "Finalizar Foco" e REGISTRA o tempo focado!
+            const secs = Math.min(realElapsed, 180 * 60);
+            const minsFocused = Math.max(1, Math.round(secs / 60));
+            recordFocusSession(minsFocused, secs, { habitId: af.habitId, dateStr: af.date });
+            notifyFocusCompleted(minsFocused, { habitId: af.habitId });
             resetTimerState();
         } else {
-            if (isStopwatch) {
-                // No modo Livre, o botão é "Finalizar Foco" e REGISTRA o tempo focado!
-                const minsFocused = Math.max(1, Math.round(elapsedSeconds / 60));
-                recordFocusSession(minsFocused, elapsedSeconds);
+            // Modo contagem regressiva: desistir ou salvar tempo decorrido
+            const elapsedSecs = Math.min(realElapsed, totalTimerSeconds);
+            const elapsedMins = Math.round(elapsedSecs / 60);
+            // O foco pode terminar sozinho enquanto a pergunta está aberta: não registra duas vezes
+            const stillSameFocus = () => activeFocus === af;
 
-                notifyFocusCompleted(minsFocused, 'focus-stopwatch-completed');
-                resetTimerState();
-
+            if (elapsedMins >= 1) {
+                customConfirm(`Deseja salvar os ${elapsedMins} min de foco realizados até agora?`, (save) => {
+                    if (!stillSameFocus()) return;
+                    if (save) {
+                        recordFocusSession(elapsedMins, elapsedSecs, { habitId: af.habitId, dateStr: af.date });
+                        notifyFocusCompleted(elapsedMins, { habitId: af.habitId });
+                    }
+                    resetTimerState();
+                });
             } else {
-                // Modo contagem regressiva: desistir ou salvar tempo decorrido
-                const elapsedSecs = totalTimerSeconds - timeLeft;
-                const elapsedMins = Math.round(elapsedSecs / 60);
-
-                if (elapsedMins >= 1) {
-                    customConfirm(`Deseja salvar os ${elapsedMins} min de foco realizados até agora?`, (save) => {
-                        if (save) {
-                            recordFocusSession(elapsedMins, elapsedSecs);
-                            notifyFocusCompleted(elapsedMins, 'focus-partial-completed');
-                        }
+                customConfirm('Tem certeza que deseja desistir? Menos de 1 min foi focado e não será registrado.', (confirmed) => {
+                    if (confirmed && stillSameFocus()) {
                         resetTimerState();
-                    });
-                } else {
-                    customConfirm('Tem certeza que deseja desistir? Menos de 1 min foi focado e não será registrado.', (confirmed) => {
-                        if (confirmed) {
-                            resetTimerState();
-                        }
-                    });
-                }
+                    }
+                });
             }
         }
-    } else {
-        // INICIAR TEMPORIZADOR
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
+        return;
+    }
 
-        isTimerRunning = true;
-        isCancelPeriod = true;
-        elapsedSeconds = 0;
-        startTimerBtn.textContent = 'Cancelar (5s)';
-        startTimerBtn.classList.remove('btn-danger', 'btn-finish-focus');
-        timerInput.disabled = true;
+    // INICIAR TEMPORIZADOR
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
 
-        if (timerProgressRing) timerProgressRing.style.transition = 'stroke-dashoffset 0.9s linear';
-        if (timerDotGroup) timerDotGroup.style.transition = 'transform 0.9s linear';
+    const mins = parseInt(timerInput.value) || 0;
+    const startTs = Date.now();
+    activeFocus = {
+        startTs,
+        mins,
+        habitId: window.currentFocusHabitId || null,
+        date: formatDate(new Date(startTs)),
+        serverFocus: !isStopwatch
+    };
+    saveActiveFocus(activeFocus);
 
-        let cancelSeconds = 5;
-        const cancelTextInterval = setInterval(() => {
-            if (isCancelPeriod) {
-                cancelSeconds--;
-                if (cancelSeconds > 0) {
-                    startTimerBtn.textContent = `Cancelar (${cancelSeconds}s)`;
-                } else {
-                    clearInterval(cancelTextInterval);
-                }
+    isTimerRunning = true;
+    isCancelPeriod = true;
+    elapsedSeconds = 0;
+    startTimerBtn.textContent = 'Cancelar (5s)';
+    startTimerBtn.classList.remove('btn-danger', 'btn-finish-focus');
+    timerInput.disabled = true;
+
+    if (timerProgressRing) timerProgressRing.style.transition = 'stroke-dashoffset 0.9s linear';
+    if (timerDotGroup) timerDotGroup.style.transition = 'transform 0.9s linear';
+
+    let cancelSeconds = 5;
+    const cancelTextInterval = setInterval(() => {
+        if (isCancelPeriod) {
+            cancelSeconds--;
+            if (cancelSeconds > 0) {
+                startTimerBtn.textContent = `Cancelar (${cancelSeconds}s)`;
             } else {
                 clearInterval(cancelTextInterval);
             }
-        }, 1000);
-
-        cancelTimeout = setTimeout(() => {
-            if (isTimerRunning) {
-                isCancelPeriod = false;
-                if (isStopwatch) {
-                    startTimerBtn.textContent = 'Finalizar Foco';
-                    startTimerBtn.classList.add('btn-finish-focus');
-                } else {
-                    startTimerBtn.textContent = 'Desistir';
-                    startTimerBtn.classList.add('btn-danger');
-                }
-            }
-        }, 5000);
-
-        if (isStopwatch) {
-            // Cronômetro Crescente (Modo Livre até 180 min = 10800s)
-            // Baseado no relógio real: continua correto mesmo com a tela bloqueada
-            focusStartTs = Date.now();
-            timerInterval = setInterval(tickFocusTimer, 1000);
-
         } else {
-            // Contagem Regressiva (Tempo definido na régua)
-            totalTimerSeconds = parseInt(timerInput.value) * 60;
-            timeLeft = totalTimerSeconds;
-            focusStartTs = Date.now();
-            timerInterval = setInterval(tickFocusTimer, 1000);
-            pushFocusStart(parseInt(timerInput.value));
+            clearInterval(cancelTextInterval);
         }
+    }, 1000);
+
+    cancelTimeout = setTimeout(() => {
+        if (isTimerRunning) {
+            isCancelPeriod = false;
+            setRunningButtonState(isStopwatch);
+        }
+    }, 5000);
+
+    // Baseado no relógio real: continua correto mesmo com a tela bloqueada
+    focusStartTs = startTs;
+    if (isStopwatch) {
+        // Cronômetro Crescente (Modo Livre até 180 min = 10800s)
+        timerInterval = setInterval(tickFocusTimer, 1000);
+    } else {
+        // Contagem Regressiva (Tempo definido na régua)
+        totalTimerSeconds = mins * 60;
+        timeLeft = totalTimerSeconds;
+        timerInterval = setInterval(tickFocusTimer, 1000);
+        pushFocusStart(mins, activeFocus.habitId, startTs + mins * 60000);
     }
 });
 
 // Atualiza o temporizador a partir do relógio real (não conta ticks do setInterval,
 // que são pausados pelo navegador quando a tela do celular é bloqueada)
 function tickFocusTimer() {
-    if (!isTimerRunning || !focusStartTs) return;
-    const isStopwatch = parseInt(timerInput.value) === 0;
+    if (!isTimerRunning || !focusStartTs || !activeFocus) return;
+    const isStopwatch = activeFocus.mins === 0;
     const realElapsed = Math.max(0, Math.floor((Date.now() - focusStartTs) / 1000));
 
     if (isStopwatch) {
-        elapsedSeconds = Math.min(realElapsed, 180 * 60);
+        const maxSecs = 180 * 60;
+        elapsedSeconds = Math.min(realElapsed, maxSecs);
         updateTimeDisplay();
-
-        if (realElapsed >= 180 * 60) {
-            clearInterval(timerInterval);
-            recordFocusSession(180, 180 * 60);
-            notifyFocusCompleted(180, 'focus-max-reached');
-            resetTimerState();
+        if (realElapsed >= maxSecs) {
+            completeActiveFocus(180, maxSecs, focusStartTs + maxSecs * 1000);
         }
     } else {
         elapsedSeconds = realElapsed;
         timeLeft = Math.max(0, totalTimerSeconds - realElapsed);
         updateTimeDisplay();
-
         if (timeLeft <= 0) {
-            clearInterval(timerInterval);
-            const chosenMins = parseInt(timerInput.value) || 25;
-            recordFocusSession(chosenMins, chosenMins * 60);
-
-            notifyFocusCompleted(chosenMins, 'focus-completed');
-
-            resetTimerState();
+            const mins = activeFocus.mins;
+            completeActiveFocus(mins, mins * 60, focusStartTs + mins * 60000);
         }
+    }
+}
+
+// Retoma (ou conclui) um foco que estava rodando quando o app foi fechado/recarregado
+function restoreActiveFocus() {
+    const af = loadActiveFocus();
+    if (!af) return;
+    const mins = Math.max(0, Math.min(180, parseInt(af.mins) || 0));
+    activeFocus = { ...af, mins, date: af.date || formatDate(new Date(af.startTs)) };
+
+    window.currentFocusHabitId = activeFocus.habitId || null;
+    timerInput.value = mins;
+    totalTimerSeconds = mins * 60;
+    timeLeft = totalTimerSeconds;
+    focusStartTs = activeFocus.startTs;
+    isTimerRunning = true;
+    isCancelPeriod = false;
+    timerInput.disabled = true;
+    if (timerProgressRing) timerProgressRing.style.transition = 'stroke-dashoffset 0.9s linear';
+    if (timerDotGroup) timerDotGroup.style.transition = 'transform 0.9s linear';
+    setRunningButtonState(mins === 0);
+    updateFocusHabitDisplay();
+
+    tickFocusTimer(); // se o tempo já acabou, registra agora
+    if (isTimerRunning) {
+        timerInterval = setInterval(tickFocusTimer, 1000);
+        switchTab(2, false);
     }
 }
 
@@ -2289,10 +2417,13 @@ function initApp() {
     initCustomTimePickerEvents();
     initDaysSelectorEvents();
     initAlarmScreenEvents();
+    restoreLastFocusHabit();
     updateFocusHabitDisplay();
     updateTimeDisplay();
     switchTab(0, false);
     setupBackupHandlers();
+    showPendingFocusMessage();
+    restoreActiveFocus();
     checkUrlAlarmParams();
     syncPushSchedule();
 }
@@ -2332,7 +2463,7 @@ function customConfirm(message, callback) {
     dialog.classList.remove('hidden');
 }
 
-function customAlert(message) {
+function customAlert(message, onClose) {
     const dialog = document.getElementById('custom-dialog-modal');
     const msgEl = document.getElementById('custom-dialog-message');
     const cancelBtn = document.getElementById('custom-dialog-cancel-btn');
@@ -2347,6 +2478,7 @@ function customAlert(message) {
 
     newConfirm.addEventListener('click', () => {
         dialog.classList.add('hidden');
+        if (onClose) onClose();
     });
 
     dialog.classList.remove('hidden');
@@ -2633,6 +2765,7 @@ function snoozeHabitFromAlarm() {
     const snoozeTime = new Date(Date.now() + alarmSnoozeMinutes * 60 * 1000);
     habit.snoozedUntil = snoozeTime.getTime();
     saveState();
+    pushSnooze(habit.id, alarmSnoozeMinutes);
 
     const hh = String(snoozeTime.getHours()).padStart(2, '0');
     const mm = String(snoozeTime.getMinutes()).padStart(2, '0');
@@ -2782,10 +2915,15 @@ function checkAlarms() {
         if (isAlreadyDone && !habit.forceAlarmToday) return;
 
         let shouldTrigger = false;
+        // Com o push do servidor ativo, o lembrete já chegou na hora certa (e o app não sabe disso)
+        const pushActive = Boolean(PUSH_SERVER_URL && VAPID_PUBLIC_KEY)
+            && 'Notification' in window && Notification.permission === 'granted';
 
-        // 1. Verificar se estava em modo soneca (adiado por 10 min)
+        // 1. Verificar se estava em modo soneca (adiado)
         if (habit.snoozedUntil && nowTimestamp >= habit.snoozedUntil) {
-            shouldTrigger = true;
+            // Se o app estava fechado no horário, o servidor já avisou: não repete horas depois ao abrir
+            const snoozeLateMs = nowTimestamp - habit.snoozedUntil;
+            if (!pushActive || snoozeLateMs <= 2 * 60000) shouldTrigger = true;
             delete habit.snoozedUntil;
             changed = true;
         } else if (habit.reminderTime) {
@@ -2797,8 +2935,6 @@ function checkAlarms() {
             // dispara assim que for aberto. Com o push do servidor ativo, o lembrete já
             // chegou na hora certa (e o app não sabe disso), então a janela é curta para
             // não repetir o aviso horas depois ao abrir o app. Sem push, vale até o fim do dia.
-            const pushActive = Boolean(PUSH_SERVER_URL && VAPID_PUBLIC_KEY)
-                && 'Notification' in window && Notification.permission === 'granted';
             const recoveryLimit = pushActive ? reminderMinutes + 2 : 24 * 60;
             const isRecentWindow = currentMinutesOfDay >= reminderMinutes && currentMinutesOfDay <= recoveryLimit;
             const alarmKey = `${todayDateStr}_${habit.reminderTime}`;
@@ -2838,7 +2974,8 @@ setTimeout(checkAlarms, 1000);
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
         // Se o app ficou aberto/em memória durante a virada do dia, recarrega para atualizar "hoje"
-        if (formatDate(new Date()) !== todayStr) {
+        // (o foco em andamento fica salvo e é retomado após recarregar)
+        if (formatDate(new Date()) !== todayStr && !isTimerRunning) {
             window.location.reload();
             return;
         }
